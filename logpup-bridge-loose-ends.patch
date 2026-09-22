@@ -1,0 +1,372 @@
+From f7261ef98ac60095e281e45644d52b820f905797 Mon Sep 17 00:00:00 2001
+From: Hasith Heshika <claudesonnet2026@gmail.com>
+Date: Tue, 22 Sep 2026 14:37:43 +0530
+Subject: [PATCH] Close the three loose ends the LogPup bridge docs left open
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+Both repos' bridge documents name work that was deferred or flagged when the
+integration landed. None of it needed LogPup running, so none of it needed to
+wait.
+
+1. safeNext refused '//' but not a leading backslash. Browsers normalise '\' to
+   '/' in URLs, so '/\evil.example' passes a '//' check and then behaves as a
+   protocol-relative URL — an open redirect on a sign-in route. LogPup's doc
+   flagged the minter's copy; in fact BOTH copies were missing the rule, and the
+   receiver (src/app/sso/logpup/page.tsx) is the end that performs the redirect.
+   The two private copies are now one tested src/lib/safeNext.ts, matching
+   LogPup's src/lib/safe-next.ts rule for rule, with the differing fallback
+   ('/' vs '/dashboard') passed in by the caller.
+
+2. Nothing pruned logpup_sso_redemptions. The sweep is now a step inside the
+   existing cron/maintenance-lifecycle job rather than a new cron, as
+   LOGPUP_TASKS_INTEGRATION.md asked. One 500-doc batch per run, expires_at <=
+   now, and it swallows its own errors so it can never fail the maintenance
+   announcements the endpoint is polled for.
+
+3. logpupApi's fallback base URL pointed at logpup.altavision.lk. LogPup is
+   deployed at management.altavision.lk, so a dropped LOGPUP_APP_URL would have
+   degraded the tasks section to "empty" instead of "misconfigured". The API key
+   is also trimmed now: a .env parser strips surrounding whitespace and a
+   hosting dashboard does not, and LogPup's bridgeKeyValid compares digests with
+   no trim of its own — so the same value can work locally and 401 in
+   production.
+
+Verification is partial and the limit is the environment, not the change: the
+npm registry is unreachable from here, so node_modules could not be installed
+and neither `npm test` nor `npx next build --webpack` could run. What did run:
+src/lib/safeNext.ts type-checks clean standalone under --strict, its 6 tests
+compile and pass under node --test (6 pass, 0 fail), and all four edited files
+are free of syntax errors. The full three-command ladder still has to be run
+where the dependencies resolve.
+
+Co-Authored-By: Claude Opus 5 <noreply@anthropic.com>
+Claude-Session: https://claude.ai/code/session_01L4v3m9fg3aaWV71p19wCva
+---
+ LOGPUP_TASKS_INTEGRATION.md                   | 20 +++++---
+ .../api/cron/maintenance-lifecycle/route.ts   | 46 ++++++++++++++++++-
+ src/app/api/logpup-sso/route.ts               | 14 +-----
+ src/app/sso/logpup/page.tsx                   | 15 +-----
+ src/lib/__tests__/safeNext.test.ts            | 46 +++++++++++++++++++
+ src/lib/logpupApi.ts                          | 15 ++++--
+ src/lib/safeNext.ts                           | 37 +++++++++++++++
+ 7 files changed, 157 insertions(+), 36 deletions(-)
+ create mode 100644 src/lib/__tests__/safeNext.test.ts
+ create mode 100644 src/lib/safeNext.ts
+
+diff --git a/LOGPUP_TASKS_INTEGRATION.md b/LOGPUP_TASKS_INTEGRATION.md
+index 2495f0f..c5e69f7 100644
+--- a/LOGPUP_TASKS_INTEGRATION.md
++++ b/LOGPUP_TASKS_INTEGRATION.md
+@@ -576,6 +576,8 @@ admin override deliberately does not extend across this API.
+ |---|---|
+ | [src/lib/tenants.ts](src/lib/tenants.ts) | `logpupTasks` feature flag, in all four required places |
+ | [src/lib/logpupStatus.ts](src/lib/logpupStatus.ts) | Status vocabulary boundary, pure, tested |
++| [src/lib/safeNext.ts](src/lib/safeNext.ts) | Open-redirect guard for both ends of the handoff, pure, tested |
++| [src/lib/__tests__/safeNext.test.ts](src/lib/__tests__/safeNext.test.ts) | 6 tests, including the backslash case both private copies missed |
+ | [src/lib/__tests__/logpupStatus.test.ts](src/lib/__tests__/logpupStatus.test.ts) | 7 tests, including the custom-status throw |
+ | [src/lib/logpupApi.ts](src/lib/logpupApi.ts) | Server-only LogPup client; never import from a client component |
+ | [src/lib/logpupIdentity.ts](src/lib/logpupIdentity.ts) | Verifies the ID token and derives the email. The one place that rule lives |
+@@ -614,10 +616,12 @@ described itself as the only caller of `createCustomToken`, which stopped being
+ 
+ ### Deliberately deferred
+ 
+-- **No sweep for `logpup_sso_redemptions` yet.** Each document carries `expires_at`, so the
+-  data to prune it is there, but nothing prunes it. One collection growing by one small
+-  document per cross-app sign-in is not urgent; add the delete as a step in the existing
+-  `cron/maintenance-lifecycle` job rather than as a new cron.
++- ~~**No sweep for `logpup_sso_redemptions` yet.**~~ **Done 2026-09-22**, as a step inside
++  `cron/maintenance-lifecycle` rather than a new cron, which is what this entry asked for. One
++  batch of at most 500 per run, `expires_at <= now`, wrapped so a failed sweep cannot fail the
++  maintenance announcements the endpoint is actually polled for. Each run reports
++  `sweptRedemptions` per tenant. It is safe against the race the row exists to lose because the
++  redeem route stamps `expires_at` an hour out against a three-minute token.
+ - **No automated test of the webhook or the proxies.** This repo's test runner covers pure
+   modules only (`node --test` over compiled `src/lib`), and every one of these needs Firebase
+   Admin and a live LogPup. The HMAC scheme was verified separately against the nine cases listed
+@@ -642,8 +646,12 @@ blocked on. Two things it does that this side should know about:
+   no edit; LogPup's tests mint with `jose` specifically to prove that.
+ - It refuses a `next` beginning `/\` as well as one beginning `//`. Browsers normalise `\` to `/`
+   in URLs, so `/\evil.example` becomes protocol-relative *after* a `//` check has passed it.
+-  **`safeNext` in `src/app/api/logpup-sso/route.ts` does not have this rule yet** — worth adding
+-  when that file is next touched, since the minter is the end that builds the link.
++  ~~**`safeNext` in `src/app/api/logpup-sso/route.ts` does not have this rule yet**~~ —
++  **fixed 2026-09-22.** Both copies were missing it, not just the minter's: the receiver at
++  `src/app/sso/logpup/page.tsx` had its own private copy with the same `//`-only check, and the
++  receiver is the end that performs the redirect. Both now call one shared
++  `src/lib/safeNext.ts`, matching LogPup's `src/lib/safe-next.ts` rule for rule, with the
++  per-caller fallback (`/` for the minter, `/dashboard` for the receiver) as an argument.
+ 
+ **Sign-in minter.** A session-authenticated endpoint that signs the same claim shape for the
+ session's own user, so the button here has something to redeem. This app redeems at
+diff --git a/src/app/api/cron/maintenance-lifecycle/route.ts b/src/app/api/cron/maintenance-lifecycle/route.ts
+index cb306ef..8dbb5f1 100644
+--- a/src/app/api/cron/maintenance-lifecycle/route.ts
++++ b/src/app/api/cron/maintenance-lifecycle/route.ts
+@@ -21,6 +21,11 @@ export const dynamic = 'force-dynamic';
+  *
+  * Auth: shared secret in `Authorization: Bearer <CRON_SECRET>` (or `?key=`). Never callable by
+  * end users.
++ *
++ * It also carries the LogPup SSO redemption sweep — see sweepLogPupRedemptions below. That is a
++ * step in this job rather than a cron of its own, which is what LOGPUP_TASKS_INTEGRATION.md
++ * asked for: one small collection's retention does not justify another scheduler entry, another
++ * secret check and another thing to notice has stopped running.
+  */
+ 
+ const KIND_TITLES: Record<string, string> = {
+@@ -149,12 +154,51 @@ async function run(db: Firestore): Promise<{ started: boolean; ended: boolean }>
+   return { started: result.started, ended: result.ended };
+ }
+ 
++/** Redeemed LogPup handoff tokens. Written by /api/auth/logpup-sso, keyed by jti. */
++const LOGPUP_REDEMPTIONS = 'logpup_sso_redemptions';
++
++/** One batch per run. Firestore's own batch ceiling is 500, and a bounded sweep cannot become a
++ *  surprise bill on a database nobody has swept in a year — it just takes a few more runs. */
++const SWEEP_LIMIT = 500;
++
++/**
++ * Delete redemption rows whose expiry has passed.
++ *
++ * THE ROW'S JOB IS TO MAKE A SECOND REDEMPTION LOSE A DATABASE RACE, so it is needed for exactly
++ * as long as the token can still verify. The redeem route stamps `expires_at` at one hour out
++ * against a token that lives three minutes, so by the time a row is eligible here its token has
++ * been dead for the better part of an hour. There is no window in which this deletes something
++ * still doing work.
++ *
++ * Returns the number deleted so a run says what it did. Never throws: a failed sweep must not
++ * fail the maintenance announcements, which are the reason this endpoint is polled. The
++ * collection is Alta Vision-only, so on every other tenant this is one empty query.
++ */
++async function sweepLogPupRedemptions(db: Firestore): Promise<number> {
++  try {
++    const stale = await db.collection(LOGPUP_REDEMPTIONS)
++      .where('expires_at', '<=', new Date())
++      .limit(SWEEP_LIMIT)
++      .get();
++    if (stale.empty) return 0;
++
++    const batch = db.batch();
++    stale.docs.forEach(d => batch.delete(d.ref));
++    await batch.commit();
++    return stale.size;
++  } catch (e) {
++    console.error('[cron/maintenance-lifecycle] logpup redemption sweep', e);
++    return 0;
++  }
++}
++
+ export async function POST(req: NextRequest) {
+   if (!authorized(req)) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+   try {
+     const tenants = [];
+     for (const { tenant, db } of adminDbsForRequest(req)) {
+-      tenants.push({ tenant: tenant.id, ...(await run(db)) });
++      const lifecycle = await run(db);
++      tenants.push({ tenant: tenant.id, ...lifecycle, sweptRedemptions: await sweepLogPupRedemptions(db) });
+     }
+     return NextResponse.json({ success: true, tenants });
+   } catch (e) {
+diff --git a/src/app/api/logpup-sso/route.ts b/src/app/api/logpup-sso/route.ts
+index 18bf606..ade36b2 100644
+--- a/src/app/api/logpup-sso/route.ts
++++ b/src/app/api/logpup-sso/route.ts
+@@ -3,6 +3,7 @@ import { NextRequest, NextResponse } from 'next/server';
+ import { SignJWT } from 'jose';
+ import { resolveLogPupCaller } from '@/lib/logpupIdentity';
+ import { LOGPUP_BASE_URL } from '@/lib/logpupApi';
++import { safeNext } from '@/lib/safeNext';
+ 
+ export const runtime = 'nodejs';
+ export const dynamic = 'force-dynamic';
+@@ -60,16 +61,3 @@ export async function POST(req: NextRequest) {
+     return NextResponse.json({ error: 'Internal error' }, { status: 500 });
+   }
+ }
+-
+-/**
+- * Where to land inside LogPup.
+- *
+- * Must be a same-origin relative path: one leading slash, never two. `//evil.example` is a
+- * protocol-relative URL that browsers treat as absolute, so an unvalidated value here would let
+- * this endpoint mint a link that carries a valid session token to somebody else's host.
+- */
+-function safeNext(value: unknown): string {
+-  if (typeof value !== 'string') return '/';
+-  if (!value.startsWith('/') || value.startsWith('//')) return '/';
+-  return value;
+-}
+diff --git a/src/app/sso/logpup/page.tsx b/src/app/sso/logpup/page.tsx
+index c78c707..bb20477 100644
+--- a/src/app/sso/logpup/page.tsx
++++ b/src/app/sso/logpup/page.tsx
+@@ -5,6 +5,7 @@ import { signInWithCustomToken } from 'firebase/auth';
+ import { Loader2, AlertCircle } from 'lucide-react';
+ import { auth } from '@/lib/firebase';
+ import { useT } from '@/store/appStore';
++import { safeNext } from '@/lib/safeNext';
+ 
+ /**
+  * Landing page for a sign-in handoff from LogPup.
+@@ -40,7 +41,7 @@ function Redeem() {
+     ran.current = true;
+ 
+     const token = params.get('token');
+-    const next = safeNext(params.get('next'));
++    const next = safeNext(params.get('next'), '/dashboard');
+ 
+     if (!token) {
+       setError(tr.logpupLinkMissingToken);
+@@ -121,15 +122,3 @@ function messageFor(code: unknown, tr: ReturnType<typeof useT>): string {
+     default:                              return tr.logpupLinkExpired;
+   }
+ }
+-
+-/**
+- * Where to land after signing in.
+- *
+- * One leading slash, never two. `//evil.example` is a protocol-relative URL that browsers treat
+- * as absolute, so an unvalidated `next` on a sign-in route is an open redirect — the classic way
+- * to harvest a session by bouncing somebody to a lookalike host straight after they authenticate.
+- */
+-function safeNext(value: string | null): string {
+-  if (!value || !value.startsWith('/') || value.startsWith('//')) return '/dashboard';
+-  return value;
+-}
+diff --git a/src/lib/__tests__/safeNext.test.ts b/src/lib/__tests__/safeNext.test.ts
+new file mode 100644
+index 0000000..f239f81
+--- /dev/null
++++ b/src/lib/__tests__/safeNext.test.ts
+@@ -0,0 +1,46 @@
++import { test } from 'node:test';
++import assert from 'node:assert/strict';
++import { safeNext } from '../safeNext';
++
++test('an ordinary relative path passes through unchanged', () => {
++  assert.equal(safeNext('/tasks'), '/tasks');
++  assert.equal(safeNext('/leaves?month=2026-09#row-9'), '/leaves?month=2026-09#row-9');
++  // A bare slash is a legitimate destination, not an absolute-looking form.
++  assert.equal(safeNext('/'), '/');
++});
++
++test('a protocol-relative URL is refused', () => {
++  // The whole reason this helper exists: it looks like a path and is not.
++  assert.equal(safeNext('//evil.example'), '/');
++  assert.equal(safeNext('//evil.example/tasks'), '/');
++});
++
++test('a leading backslash is refused, because browsers normalise it to a second slash', () => {
++  // The rejection both private copies were missing. '/\evil.example' passes a '//' check and
++  // then becomes protocol-relative in the browser.
++  assert.equal(safeNext('/\\evil.example'), '/');
++  assert.equal(safeNext('/\\/evil.example'), '/');
++});
++
++test('anything absolute is refused', () => {
++  assert.equal(safeNext('https://evil.example'), '/');
++  assert.equal(safeNext('http://evil.example'), '/');
++  assert.equal(safeNext('javascript:alert(1)'), '/');
++  assert.equal(safeNext('evil.example'), '/');
++});
++
++test('a non-string is refused, including the missing case', () => {
++  assert.equal(safeNext(undefined), '/');
++  assert.equal(safeNext(null), '/');
++  assert.equal(safeNext(''), '/');
++  assert.equal(safeNext(42), '/');
++  assert.equal(safeNext(['/tasks']), '/');
++});
++
++test('the caller supplies the fallback, and a refusal uses it', () => {
++  // The receiver signs somebody in before redirecting, so its fallback is the dashboard.
++  assert.equal(safeNext('//evil.example', '/dashboard'), '/dashboard');
++  assert.equal(safeNext('/\\evil.example', '/dashboard'), '/dashboard');
++  assert.equal(safeNext(null, '/dashboard'), '/dashboard');
++  assert.equal(safeNext('/tasks', '/dashboard'), '/tasks');
++});
+diff --git a/src/lib/logpupApi.ts b/src/lib/logpupApi.ts
+index 16b8c82..6d99199 100644
+--- a/src/lib/logpupApi.ts
++++ b/src/lib/logpupApi.ts
+@@ -10,20 +10,29 @@
+  */
+ import type { LogPupStatus } from '@/lib/logpupStatus';
+ 
+-const BASE = (process.env.LOGPUP_APP_URL || 'https://logpup.altavision.lk').replace(/\/$/, '');
++// LogPup is deployed at management.altavision.lk, NOT at a logpup.* host — the fallback said
++// otherwise, so a dropped LOGPUP_APP_URL would have sent every bridge call to a hostname that
++// does not serve LogPup, and the tasks section would have degraded to "empty" rather than
++// "misconfigured". The env var still wins; this is only what happens when it is missing.
++const BASE = (process.env.LOGPUP_APP_URL || 'https://management.altavision.lk').replace(/\/$/, '');
+ 
+ /** How long we wait on LogPup before giving up. The tasks page must not hang on it. */
+ const TIMEOUT_MS = 8000;
+ 
+ function authHeaders(): Record<string, string> {
+-  const key = process.env.LOGPUP_API_KEY;
++  // TRIMMED because a key pasted into a hosting dashboard keeps its surrounding whitespace,
++  // while a .env file's parser strips it — so the same value works locally and 401s in
++  // production, which is an unpleasant afternoon. LogPup compares sha256 digests
++  // (bridge-auth.ts, bridgeKeyValid) with no trim of its own, and a shared secret never
++  // legitimately begins or ends with a space.
++  const key = process.env.LOGPUP_API_KEY?.trim();
+   if (!key) throw new Error('LOGPUP_API_KEY is not configured');
+   return { 'x-api-key': key, Accept: 'application/json' };
+ }
+ 
+ /** True when the integration is configured at all. Lets a route answer "off" rather than throw. */
+ export function logpupConfigured(): boolean {
+-  return !!process.env.LOGPUP_API_KEY;
++  return !!process.env.LOGPUP_API_KEY?.trim();
+ }
+ 
+ export const LOGPUP_BASE_URL = BASE;
+diff --git a/src/lib/safeNext.ts b/src/lib/safeNext.ts
+new file mode 100644
+index 0000000..0da1439
+--- /dev/null
++++ b/src/lib/safeNext.ts
+@@ -0,0 +1,37 @@
++/**
++ * Where an SSO handoff is allowed to land.
++ *
++ * AN UNVALIDATED `next` IS AN OPEN REDIRECT, and an open redirect on a sign-in route is the
++ * classic way to harvest a session: bounce the person to a lookalike host at the exact moment
++ * they expect to be signed in somewhere. So this answers one question — is this a same-origin
++ * RELATIVE path? — and falls back for everything else rather than trying to repair it.
++ *
++ * ONE COPY, TWO ENDS. Both ends of the LogPup handoff run this: the minter
++ * (src/app/api/logpup-sso/route.ts), which builds the link, and the receiver
++ * (src/app/sso/logpup/page.tsx), which acts on the value. Each had its own private copy and
++ * both were missing the third rejection below. A validator that only runs on one end validates
++ * nothing — a link can be hand-assembled, and the receiver is the end that performs the
++ * redirect. LogPup's src/lib/safe-next.ts is the same function on the other side of the bridge;
++ * the two must agree, so a change here is a change there.
++ *
++ * THREE REJECTIONS, and the last two are the ones that matter:
++ *
++ *  - No leading '/' — 'https://evil.example' is not a path at all.
++ *  - A second '/' — '//evil.example' is a PROTOCOL-RELATIVE URL. It looks like a path and every
++ *    browser treats it as absolute.
++ *  - A leading backslash — '/\evil.example'. Browsers normalise '\' to '/' in URLs, so this
++ *    becomes the protocol-relative case above AFTER a check that only looked for '//' has
++ *    already passed it. This one is why the rule is "one slash then an ordinary character"
++ *    rather than "not '//'".
++ *
++ * `fallback` differs by caller on purpose: the minter has no session context and sends people to
++ * '/', while the receiver has just signed somebody in and sends them to '/dashboard'.
++ */
++export function safeNext(value: unknown, fallback = '/'): string {
++  if (typeof value !== 'string' || value === '') return fallback;
++  if (!value.startsWith('/')) return fallback;
++  // Index 1 rather than a startsWith pair, so a bare '/' (length 1, undefined here) passes and
++  // both absolute-looking forms are refused together.
++  if (value[1] === '/' || value[1] === '\\') return fallback;
++  return value;
++}
+-- 
+2.43.0
+
