@@ -576,6 +576,8 @@ admin override deliberately does not extend across this API.
 |---|---|
 | [src/lib/tenants.ts](src/lib/tenants.ts) | `logpupTasks` feature flag, in all four required places |
 | [src/lib/logpupStatus.ts](src/lib/logpupStatus.ts) | Status vocabulary boundary, pure, tested |
+| [src/lib/safeNext.ts](src/lib/safeNext.ts) | Open-redirect guard for both ends of the handoff, pure, tested |
+| [src/lib/__tests__/safeNext.test.ts](src/lib/__tests__/safeNext.test.ts) | 6 tests, including the backslash case both private copies missed |
 | [src/lib/__tests__/logpupStatus.test.ts](src/lib/__tests__/logpupStatus.test.ts) | 7 tests, including the custom-status throw |
 | [src/lib/logpupApi.ts](src/lib/logpupApi.ts) | Server-only LogPup client; never import from a client component |
 | [src/lib/logpupIdentity.ts](src/lib/logpupIdentity.ts) | Verifies the ID token and derives the email. The one place that rule lives |
@@ -614,10 +616,12 @@ described itself as the only caller of `createCustomToken`, which stopped being 
 
 ### Deliberately deferred
 
-- **No sweep for `logpup_sso_redemptions` yet.** Each document carries `expires_at`, so the
-  data to prune it is there, but nothing prunes it. One collection growing by one small
-  document per cross-app sign-in is not urgent; add the delete as a step in the existing
-  `cron/maintenance-lifecycle` job rather than as a new cron.
+- ~~**No sweep for `logpup_sso_redemptions` yet.**~~ **Done 2026-09-22**, as a step inside
+  `cron/maintenance-lifecycle` rather than a new cron, which is what this entry asked for. One
+  batch of at most 500 per run, `expires_at <= now`, wrapped so a failed sweep cannot fail the
+  maintenance announcements the endpoint is actually polled for. Each run reports
+  `sweptRedemptions` per tenant. It is safe against the race the row exists to lose because the
+  redeem route stamps `expires_at` an hour out against a three-minute token.
 - **No automated test of the webhook or the proxies.** This repo's test runner covers pure
   modules only (`node --test` over compiled `src/lib`), and every one of these needs Firebase
   Admin and a live LogPup. The HMAC scheme was verified separately against the nine cases listed
@@ -642,8 +646,12 @@ blocked on. Two things it does that this side should know about:
   no edit; LogPup's tests mint with `jose` specifically to prove that.
 - It refuses a `next` beginning `/\` as well as one beginning `//`. Browsers normalise `\` to `/`
   in URLs, so `/\evil.example` becomes protocol-relative *after* a `//` check has passed it.
-  **`safeNext` in `src/app/api/logpup-sso/route.ts` does not have this rule yet** — worth adding
-  when that file is next touched, since the minter is the end that builds the link.
+  ~~**`safeNext` in `src/app/api/logpup-sso/route.ts` does not have this rule yet**~~ —
+  **fixed 2026-09-22.** Both copies were missing it, not just the minter's: the receiver at
+  `src/app/sso/logpup/page.tsx` had its own private copy with the same `//`-only check, and the
+  receiver is the end that performs the redirect. Both now call one shared
+  `src/lib/safeNext.ts`, matching LogPup's `src/lib/safe-next.ts` rule for rule, with the
+  per-caller fallback (`/` for the minter, `/dashboard` for the receiver) as an argument.
 
 **Sign-in minter.** A session-authenticated endpoint that signs the same claim shape for the
 session's own user, so the button here has something to redeem. This app redeems at

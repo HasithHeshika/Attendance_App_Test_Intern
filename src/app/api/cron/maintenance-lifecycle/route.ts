@@ -21,6 +21,11 @@ export const dynamic = 'force-dynamic';
  *
  * Auth: shared secret in `Authorization: Bearer <CRON_SECRET>` (or `?key=`). Never callable by
  * end users.
+ *
+ * It also carries the LogPup SSO redemption sweep — see sweepLogPupRedemptions below. That is a
+ * step in this job rather than a cron of its own, which is what LOGPUP_TASKS_INTEGRATION.md
+ * asked for: one small collection's retention does not justify another scheduler entry, another
+ * secret check and another thing to notice has stopped running.
  */
 
 const KIND_TITLES: Record<string, string> = {
@@ -149,12 +154,51 @@ async function run(db: Firestore): Promise<{ started: boolean; ended: boolean }>
   return { started: result.started, ended: result.ended };
 }
 
+/** Redeemed LogPup handoff tokens. Written by /api/auth/logpup-sso, keyed by jti. */
+const LOGPUP_REDEMPTIONS = 'logpup_sso_redemptions';
+
+/** One batch per run. Firestore's own batch ceiling is 500, and a bounded sweep cannot become a
+ *  surprise bill on a database nobody has swept in a year — it just takes a few more runs. */
+const SWEEP_LIMIT = 500;
+
+/**
+ * Delete redemption rows whose expiry has passed.
+ *
+ * THE ROW'S JOB IS TO MAKE A SECOND REDEMPTION LOSE A DATABASE RACE, so it is needed for exactly
+ * as long as the token can still verify. The redeem route stamps `expires_at` at one hour out
+ * against a token that lives three minutes, so by the time a row is eligible here its token has
+ * been dead for the better part of an hour. There is no window in which this deletes something
+ * still doing work.
+ *
+ * Returns the number deleted so a run says what it did. Never throws: a failed sweep must not
+ * fail the maintenance announcements, which are the reason this endpoint is polled. The
+ * collection is Alta Vision-only, so on every other tenant this is one empty query.
+ */
+async function sweepLogPupRedemptions(db: Firestore): Promise<number> {
+  try {
+    const stale = await db.collection(LOGPUP_REDEMPTIONS)
+      .where('expires_at', '<=', new Date())
+      .limit(SWEEP_LIMIT)
+      .get();
+    if (stale.empty) return 0;
+
+    const batch = db.batch();
+    stale.docs.forEach(d => batch.delete(d.ref));
+    await batch.commit();
+    return stale.size;
+  } catch (e) {
+    console.error('[cron/maintenance-lifecycle] logpup redemption sweep', e);
+    return 0;
+  }
+}
+
 export async function POST(req: NextRequest) {
   if (!authorized(req)) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   try {
     const tenants = [];
     for (const { tenant, db } of adminDbsForRequest(req)) {
-      tenants.push({ tenant: tenant.id, ...(await run(db)) });
+      const lifecycle = await run(db);
+      tenants.push({ tenant: tenant.id, ...lifecycle, sweptRedemptions: await sweepLogPupRedemptions(db) });
     }
     return NextResponse.json({ success: true, tenants });
   } catch (e) {

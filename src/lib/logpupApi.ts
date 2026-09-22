@@ -10,20 +10,29 @@
  */
 import type { LogPupStatus } from '@/lib/logpupStatus';
 
-const BASE = (process.env.LOGPUP_APP_URL || 'https://logpup.altavision.lk').replace(/\/$/, '');
+// LogPup is deployed at management.altavision.lk, NOT at a logpup.* host — the fallback said
+// otherwise, so a dropped LOGPUP_APP_URL would have sent every bridge call to a hostname that
+// does not serve LogPup, and the tasks section would have degraded to "empty" rather than
+// "misconfigured". The env var still wins; this is only what happens when it is missing.
+const BASE = (process.env.LOGPUP_APP_URL || 'https://management.altavision.lk').replace(/\/$/, '');
 
 /** How long we wait on LogPup before giving up. The tasks page must not hang on it. */
 const TIMEOUT_MS = 8000;
 
 function authHeaders(): Record<string, string> {
-  const key = process.env.LOGPUP_API_KEY;
+  // TRIMMED because a key pasted into a hosting dashboard keeps its surrounding whitespace,
+  // while a .env file's parser strips it — so the same value works locally and 401s in
+  // production, which is an unpleasant afternoon. LogPup compares sha256 digests
+  // (bridge-auth.ts, bridgeKeyValid) with no trim of its own, and a shared secret never
+  // legitimately begins or ends with a space.
+  const key = process.env.LOGPUP_API_KEY?.trim();
   if (!key) throw new Error('LOGPUP_API_KEY is not configured');
   return { 'x-api-key': key, Accept: 'application/json' };
 }
 
 /** True when the integration is configured at all. Lets a route answer "off" rather than throw. */
 export function logpupConfigured(): boolean {
-  return !!process.env.LOGPUP_API_KEY;
+  return !!process.env.LOGPUP_API_KEY?.trim();
 }
 
 export const LOGPUP_BASE_URL = BASE;

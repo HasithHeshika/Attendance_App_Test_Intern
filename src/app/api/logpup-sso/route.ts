@@ -3,6 +3,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { SignJWT } from 'jose';
 import { resolveLogPupCaller } from '@/lib/logpupIdentity';
 import { LOGPUP_BASE_URL } from '@/lib/logpupApi';
+import { safeNext } from '@/lib/safeNext';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -59,17 +60,4 @@ export async function POST(req: NextRequest) {
   } catch {
     return NextResponse.json({ error: 'Internal error' }, { status: 500 });
   }
-}
-
-/**
- * Where to land inside LogPup.
- *
- * Must be a same-origin relative path: one leading slash, never two. `//evil.example` is a
- * protocol-relative URL that browsers treat as absolute, so an unvalidated value here would let
- * this endpoint mint a link that carries a valid session token to somebody else's host.
- */
-function safeNext(value: unknown): string {
-  if (typeof value !== 'string') return '/';
-  if (!value.startsWith('/') || value.startsWith('//')) return '/';
-  return value;
 }
