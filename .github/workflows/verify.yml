@@ -1,0 +1,66 @@
+name: Verify (types, tests, build)
+
+# The three gates CLAUDE.md says every change must pass, enforced rather than asked for.
+#
+# Why this exists: the rules lived only in CLAUDE.md, which is instruction context for an AI
+# assistant and invisible to a human developer, a script, or a session that simply does not read
+# it. On 2026-09-06 main was left type-broken twice in one afternoon by exactly the failure
+# CLAUDE.md warns about — a TRANSLATIONS key referenced before it existed in all three language
+# blocks — and nothing caught it, because nothing was watching. Written rules are advice; a
+# required check is the only thing that is true for whoever pushes next.
+#
+# Note this project commits STRAIGHT TO MAIN (see version-bump.yml), so `push` matters more here
+# than `pull_request`. The job reports a failure after the fact rather than preventing it; to
+# make it actually blocking, mark "Verify" as a required status check in the repository's branch
+# protection settings. Without that step this file is a smoke alarm, not a lock.
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+# One run per ref. A second push while the first is still building would otherwise queue a
+# `next build` against the same cache and hit the "Another next build process is already
+# running" lock this repo is prone to.
+concurrency:
+  group: verify-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          # @simplewebauthn/server declares engines.node >= 20.
+          node-version: '22'
+          cache: npm
+
+      - name: Install
+        run: npm ci
+
+      # Each gate runs even if an earlier one failed, so one push surfaces every problem
+      # instead of hiding the test failures behind the first type error.
+      - name: Typecheck
+        run: npx tsc --noEmit
+
+      - name: Unit tests
+        if: ${{ !cancelled() }}
+        run: npm test
+
+      # `next build` alone FAILS in this repo — the --webpack flag is required (CLAUDE.md).
+      # It also type-checks with a different config from `tsc --noEmit` and has caught errors
+      # that `tsc` did not, so it is a genuinely separate gate rather than a slower repeat.
+      #
+      # `prebuild` regenerates src/generated/tenants.snapshot.json from the tenants registry.
+      # That needs FIREBASE_ADMIN_* credentials which CI does not have; the snapshot committed
+      # to the repo is the documented cold-start failsafe, so the build proceeds without them.
+      - name: Production build
+        if: ${{ !cancelled() }}
+        run: npx next build --webpack

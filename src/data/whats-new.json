@@ -1,0 +1,352 @@
+[
+  {
+    "version": "1.9.67",
+    "date": "2026-09-21T13:11:04.835Z",
+    "changes": [
+      "Merge branch 'main' of https://github.com/devopsaltavision/Attendance-Web-App"
+    ]
+  },
+  {
+    "version": "1.9.66",
+    "date": "2026-09-21T03:43:51.005Z",
+    "changes": [
+      "Merge branch 'main' of https://github.com/devopsaltavision/Attendance-Web-App"
+    ]
+  },
+  {
+    "version": "1.9.65",
+    "date": "2026-09-18T11:51:43.920Z",
+    "changes": [
+      "feat(attendance): add spillover checkout tracking and UI indicators"
+    ]
+  },
+  {
+    "version": "1.9.64",
+    "date": "2026-09-18T11:51:26.700Z",
+    "changes": [
+      "Merge pull request #18 from devopsaltavision/dev-yasitha"
+    ]
+  },
+  {
+    "version": "1.9.63",
+    "date": "2026-09-17T02:00:08.173Z",
+    "changes": [
+      "Southern Lanka payroll compliance (against HR's requirements email):"
+    ]
+  },
+  {
+    "version": "1.9.62",
+    "date": "2026-09-17T01:59:50.395Z",
+    "changes": [
+      "Merge pull request #17 from devopsaltavision/dev-yasitha"
+    ]
+  },
+  {
+    "version": "1.9.61",
+    "date": "2026-09-16T07:07:44.196Z",
+    "changes": [
+      "fixed the suspence bugs and log pup coonting erros."
+    ]
+  },
+  {
+    "version": "1.9.60",
+    "date": "2026-09-15T04:42:27.733Z",
+    "changes": [
+      "Southern Lanka: shift-aware attendance + biometric enrollment visibility"
+    ]
+  },
+  {
+    "version": "1.9.59",
+    "date": "2026-09-15T04:42:12.834Z",
+    "changes": [
+      "Merge pull request #16 from devopsaltavision/dev-yasitha"
+    ]
+  },
+  {
+    "version": "1.9.58",
+    "date": "2026-09-11T12:51:34.699Z",
+    "changes": [
+      "Merge branch 'main' of https://github.com/devopsaltavision/Attendance-Web-App"
+    ]
+  },
+  {
+    "version": "1.9.57",
+    "date": "2026-09-11T08:23:07.902Z",
+    "changes": [
+      "Fix mobile layout"
+    ]
+  },
+  {
+    "version": "1.9.56",
+    "date": "2026-09-11T08:22:52.868Z",
+    "changes": [
+      "Merge pull request #15 from devopsaltavision/dev-yasitha"
+    ]
+  },
+  {
+    "version": "1.9.55",
+    "date": "2026-09-11T06:59:49.998Z",
+    "changes": [
+      "Merge branch 'main' of https://github.com/devopsaltavision/Attendance-Web-App"
+    ]
+  },
+  {
+    "version": "1.9.54",
+    "date": "2026-09-10T12:17:20.792Z",
+    "changes": [
+      "Merge pull request #14 from devopsaltavision/dev-yasitha"
+    ]
+  },
+  {
+    "version": "1.9.53",
+    "date": "2026-09-10T12:17:02.314Z",
+    "changes": [
+      "Dev yasitha"
+    ]
+  },
+  {
+    "version": "1.9.52",
+    "date": "2026-09-10T08:00:57.372Z",
+    "changes": [
+      "Merge branch 'main' of https://github.com/devopsaltavision/Attendance-Web-App"
+    ]
+  },
+  {
+    "version": "1.9.51",
+    "date": "2026-09-10T05:00:12.658Z",
+    "changes": [
+      "Merge branch 'main' of https://github.com/devopsaltavision/Attendance-Web-App"
+    ]
+  },
+  {
+    "version": "1.9.50",
+    "date": "2026-09-09T12:09:10.506Z",
+    "changes": [
+      "Merge pull request #13 from devopsaltavision/dev-yasitha"
+    ]
+  },
+  {
+    "version": "1.9.49",
+    "date": "2026-09-09T12:08:54.400Z",
+    "changes": [
+      "Fix mobile views"
+    ]
+  },
+  {
+    "version": "1.9.48",
+    "date": "2026-09-09T10:06:49.289Z",
+    "changes": [
+      "suspence balance update bug fix"
+    ]
+  },
+  {
+    "version": "1.9.47",
+    "date": "2026-09-09T06:28:02.378Z",
+    "changes": [
+      "Merge branch 'main' of https://github.com/devopsaltavision/Attendance-Web-App"
+    ]
+  },
+  {
+    "version": "1.9.46",
+    "date": "2026-09-09T05:54:28.771Z",
+    "changes": [
+      "Merge branch 'main' of https://github.com/devopsaltavision/Attendance-Web-App"
+    ]
+  },
+  {
+    "version": "1.9.45",
+    "date": "2026-09-08T11:11:09.776Z",
+    "changes": [
+      "Merge branch 'main' of https://github.com/devopsaltavision/Attendance-Web-App"
+    ]
+  },
+  {
+    "version": "1.9.44",
+    "date": "2026-09-08T07:39:06.431Z",
+    "changes": [
+      "Merge branch 'main' of https://github.com/devopsaltavision/Attendance-Web-App"
+    ]
+  },
+  {
+    "version": "1.9.43",
+    "date": "2026-09-08T03:54:44.973Z",
+    "changes": [
+      "Merge branch 'main' of https://github.com/devopsaltavision/Attendance-Web-App"
+    ]
+  },
+  {
+    "version": "1.9.42",
+    "date": "2026-09-07T16:17:43.389Z",
+    "changes": [
+      "Dev yasitha"
+    ]
+  },
+  {
+    "version": "1.9.41",
+    "date": "2026-09-07T16:17:24.817Z",
+    "changes": [
+      "Merge pull request #12 from devopsaltavision/dev-yasitha"
+    ]
+  },
+  {
+    "version": "1.9.40",
+    "date": "2026-09-07T04:17:09.271Z",
+    "changes": [
+      "added image resizing for bill upload"
+    ]
+  },
+  {
+    "version": "1.9.39",
+    "date": "2026-09-06T15:44:15.430Z",
+    "changes": [
+      "Merge branch 'main' of https://github.com/devopsaltavision/Attendance-Web-App"
+    ]
+  },
+  {
+    "version": "1.9.38",
+    "date": "2026-09-06T15:40:56.668Z",
+    "changes": [
+      "Merge branch 'main' of https://github.com/devopsaltavision/Attendance-Web-App"
+    ]
+  },
+  {
+    "version": "1.9.37",
+    "date": "2026-09-06T15:26:45.643Z",
+    "changes": [
+      "."
+    ]
+  },
+  {
+    "version": "1.9.36",
+    "date": "2026-09-06T15:26:29.582Z",
+    "changes": [
+      "Upgrade overview calendar and dossier insights"
+    ]
+  },
+  {
+    "version": "1.9.35",
+    "date": "2026-09-06T14:06:35.905Z",
+    "changes": [
+      "."
+    ]
+  },
+  {
+    "version": "1.9.34",
+    "date": "2026-09-06T14:06:19.336Z",
+    "changes": [
+      "."
+    ]
+  },
+  {
+    "version": "1.9.33",
+    "date": "2026-09-06T13:21:54.007Z",
+    "changes": [
+      "Merge branch 'main' of https://github.com/devopsaltavision/Attendance-Web-App"
+    ]
+  },
+  {
+    "version": "1.9.32",
+    "date": "2026-09-06T11:43:06.330Z",
+    "changes": [
+      "Merge branch 'main' of https://github.com/devopsaltavision/Attendance-Web-App"
+    ]
+  },
+  {
+    "version": "1.9.31",
+    "date": "2026-09-06T11:39:51.728Z",
+    "changes": [
+      "."
+    ]
+  },
+  {
+    "version": "1.9.30",
+    "date": "2026-09-06T07:28:40.778Z",
+    "changes": [
+      "Merge branch 'main' of https://github.com/devopsaltavision/Attendance-Web-App"
+    ]
+  },
+  {
+    "version": "1.9.29",
+    "date": "2026-09-06T06:12:30.049Z",
+    "changes": [
+      "Merge branch 'main' of https://github.com/devopsaltavision/Attendance-Web-App"
+    ]
+  },
+  {
+    "version": "1.9.28",
+    "date": "2026-09-05T17:53:01.122Z",
+    "changes": [
+      "Harden auth and overhaul notifications/greetings"
+    ]
+  },
+  {
+    "version": "1.9.27",
+    "date": "2026-09-05T14:04:35.956Z",
+    "changes": [
+      "Merge branch 'main' of https://github.com/devopsaltavision/Attendance-Web-App"
+    ]
+  },
+  {
+    "version": "1.9.26",
+    "date": "2026-09-05T13:49:32.179Z",
+    "changes": [
+      "Ship approvals queue and greetings platform update"
+    ]
+  },
+  {
+    "version": "1.9.25",
+    "date": "2026-09-05T11:36:06.070Z",
+    "changes": [
+      "Add greetings cron and workflow UI overhauls"
+    ]
+  },
+  {
+    "version": "1.9.24",
+    "date": "2026-09-04T10:54:34.788Z",
+    "changes": [
+      "Merge branch 'main' of https://github.com/devopsaltavision/Attendance-Web-App"
+    ]
+  },
+  {
+    "version": "1.9.23",
+    "date": "2026-09-04T09:47:31.169Z",
+    "changes": [
+      "Merge branch 'main' of https://github.com/devopsaltavision/Attendance-Web-App"
+    ]
+  },
+  {
+    "version": "1.9.22",
+    "date": "2026-09-04T09:35:36.027Z",
+    "changes": [
+      "Merge branch 'main' of https://github.com/devopsaltavision/Attendance-Web-App"
+    ]
+  },
+  {
+    "version": "1.9.21",
+    "date": "2026-09-04T08:33:41.982Z",
+    "changes": [
+      "Fingerprint API changes"
+    ]
+  },
+  {
+    "version": "1.9.20",
+    "date": "2026-09-03T09:39:58.585Z",
+    "changes": [
+      "Move tenancy to registry; add platform console"
+    ]
+  },
+  {
+    "version": "1.9.19",
+    "date": "2026-09-03T06:23:41.388Z",
+    "changes": [
+      "Dev yasitha"
+    ]
+  },
+  {
+    "version": "1.9.18",
+    "date": "2026-09-03T06:23:24.240Z",
+    "changes": [
+      "Merge pull request #11 from devopsaltavision/dev-yasitha"
+    ]
+  }
+]

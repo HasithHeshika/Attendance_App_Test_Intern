@@ -1,0 +1,35 @@
+{
+  "name": "CareCode",
+  "short_name": "CareCode",
+  "description": "Enterprise Attendance & Leave Management",
+  "start_url": "/dashboard",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "portrait-primary",
+  "background_color": "#F4F3FB",
+  "theme_color": "#403B9C",
+  "categories": ["business", "productivity"],
+  "icons": [
+    {
+      "src": "/brand/southernlanka/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/brand/southernlanka/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/brand/southernlanka/icon-maskable-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    }
+  ],
+  "screenshots": [],
+  "related_applications": [],
+  "prefer_related_applications": false
+}

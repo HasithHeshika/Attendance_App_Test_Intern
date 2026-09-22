@@ -1,0 +1,929 @@
+<title>Southern Lanka Capability Register</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@500;600;700&family=IBM+Plex+Mono:wght@400;500&family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&display=swap">
+
+<style>
+  :root {
+    --ground:      #F6F5FA;
+    --surface:     #FFFFFF;
+    --surface-alt: #EFEDF6;
+    --ink:         #191730;
+    --ink-soft:    #3D3960;
+    --muted:       #5D5980;
+    --rule:        #E1DEEC;
+    --rule-soft:   #EDEBF3;
+    --accent:      #403B9C;
+    --accent-soft: #ECEAF8;
+    --system:      #2A7A70;
+    --system-soft: #E3F1EE;
+
+    --f-display: 'Archivo', 'Helvetica Neue', Helvetica, Arial, sans-serif;
+    --f-body:    'Source Serif 4', Georgia, 'Times New Roman', serif;
+    --f-mono:    'IBM Plex Mono', ui-monospace, 'SFMono-Regular', Consolas, monospace;
+  }
+
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --ground:      #131126;
+      --surface:     #1A1833;
+      --surface-alt: #221F42;
+      --ink:         #EEECF7;
+      --ink-soft:    #C8C4E0;
+      --muted:       #9D98BE;
+      --rule:        #2E2B4E;
+      --rule-soft:   #24213F;
+      --accent:      #9A93E8;
+      --accent-soft: #262347;
+      --system:      #6BC0B1;
+      --system-soft: #1C3330;
+    }
+  }
+
+  :root[data-theme="dark"] {
+    --ground:      #131126;
+    --surface:     #1A1833;
+    --surface-alt: #221F42;
+    --ink:         #EEECF7;
+    --ink-soft:    #C8C4E0;
+    --muted:       #9D98BE;
+    --rule:        #2E2B4E;
+    --rule-soft:   #24213F;
+    --accent:      #9A93E8;
+    --accent-soft: #262347;
+    --system:      #6BC0B1;
+    --system-soft: #1C3330;
+  }
+
+  * { box-sizing: border-box; }
+
+  body {
+    background: var(--ground);
+    color: var(--ink);
+    font-family: var(--f-body);
+    font-size: 16px;
+    line-height: 1.62;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  a { color: var(--accent); }
+  a:focus-visible,
+  .rail a:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; border-radius: 2px; }
+
+  /* ─── Masthead ─────────────────────────────────────────────────────── */
+  .masthead {
+    border-bottom: 1px solid var(--rule);
+    background: var(--surface);
+  }
+  .masthead-inner {
+    max-width: 1120px;
+    margin: 0 auto;
+    padding: 52px 32px 36px;
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+  }
+  .eyebrow {
+    font-family: var(--f-mono);
+    font-size: 0.7rem;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--muted);
+  }
+  .masthead h1 {
+    font-family: var(--f-display);
+    font-weight: 700;
+    font-size: clamp(2rem, 4.4vw, 3.1rem);
+    line-height: 1.06;
+    letter-spacing: -0.022em;
+    text-wrap: balance;
+    margin: 0;
+    max-width: 20ch;
+  }
+  .standfirst {
+    margin: 0;
+    max-width: 62ch;
+    font-size: 1.08rem;
+    color: var(--ink-soft);
+  }
+  .facts {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+    gap: 1px;
+    background: var(--rule);
+    border: 1px solid var(--rule);
+    margin-top: 8px;
+  }
+  .fact {
+    background: var(--surface);
+    padding: 13px 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+  }
+  .fact dt {
+    font-family: var(--f-mono);
+    font-size: 0.63rem;
+    letter-spacing: 0.13em;
+    text-transform: uppercase;
+    color: var(--muted);
+  }
+  .fact dd {
+    margin: 0;
+    font-family: var(--f-display);
+    font-weight: 600;
+    font-size: 0.92rem;
+    letter-spacing: -0.005em;
+  }
+
+  /* ─── Shell ────────────────────────────────────────────────────────── */
+  .shell {
+    max-width: 1120px;
+    margin: 0 auto;
+    padding: 0 32px 96px;
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 48px;
+  }
+  @media (min-width: 1000px) {
+    .shell { grid-template-columns: 216px minmax(0, 1fr); gap: 72px; }
+  }
+
+  .rail { padding-top: 52px; }
+  @media (min-width: 1000px) {
+    .rail { position: sticky; top: 0; align-self: start; max-height: 100vh; overflow-y: auto; }
+  }
+  .rail-title {
+    font-family: var(--f-mono);
+    font-size: 0.63rem;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--muted);
+    padding-bottom: 12px;
+    border-bottom: 1px solid var(--rule);
+    margin-bottom: 4px;
+  }
+  .rail ol {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+  }
+  .rail li { border-bottom: 1px solid var(--rule-soft); }
+  .rail a {
+    display: grid;
+    grid-template-columns: 26px 1fr;
+    gap: 10px;
+    padding: 11px 0;
+    text-decoration: none;
+    color: var(--ink-soft);
+    font-family: var(--f-display);
+    font-weight: 600;
+    font-size: 0.83rem;
+    line-height: 1.35;
+    letter-spacing: -0.005em;
+  }
+  .rail a:hover { color: var(--accent); }
+  .rail .num {
+    font-family: var(--f-mono);
+    font-weight: 400;
+    font-size: 0.72rem;
+    color: var(--accent);
+    padding-top: 1px;
+  }
+
+  /* ─── Sections ─────────────────────────────────────────────────────── */
+  main { padding-top: 52px; min-width: 0; }
+
+  .lede-note {
+    border-left: 3px solid var(--accent);
+    background: var(--surface);
+    padding: 18px 22px;
+    margin-bottom: 56px;
+  }
+  .lede-note p { margin: 0; font-size: 0.97rem; color: var(--ink-soft); max-width: 64ch; }
+  .lede-note p + p { margin-top: 10px; }
+
+  .module { margin-bottom: 68px; scroll-margin-top: 24px; }
+  .module-head {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    padding-bottom: 20px;
+    margin-bottom: 24px;
+    border-bottom: 1px solid var(--rule);
+  }
+  .module-num {
+    font-family: var(--f-mono);
+    font-size: 0.7rem;
+    letter-spacing: 0.16em;
+    color: var(--accent);
+  }
+  .module h2 {
+    font-family: var(--f-display);
+    font-weight: 700;
+    font-size: clamp(1.42rem, 2.6vw, 1.78rem);
+    letter-spacing: -0.018em;
+    line-height: 1.16;
+    text-wrap: balance;
+    margin: 0;
+    max-width: 26ch;
+  }
+  .module-lede {
+    margin: 0;
+    max-width: 66ch;
+    color: var(--ink-soft);
+    font-size: 1rem;
+  }
+
+  .caps { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 2px; }
+  .caps > li {
+    background: var(--surface);
+    border-left: 2px solid var(--accent-soft);
+    padding: 15px 20px 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+  }
+  .caps > li:hover { border-left-color: var(--accent); }
+  .cap-title {
+    font-family: var(--f-display);
+    font-weight: 600;
+    font-size: 0.95rem;
+    letter-spacing: -0.008em;
+    line-height: 1.35;
+    margin: 0;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px;
+  }
+  .cap-body { margin: 0; font-size: 0.94rem; color: var(--muted); max-width: 68ch; }
+  .cap-body code {
+    font-family: var(--f-mono);
+    font-size: 0.83em;
+    color: var(--ink-soft);
+    background: var(--surface-alt);
+    padding: 1px 5px;
+    border-radius: 2px;
+  }
+
+  .tag {
+    font-family: var(--f-mono);
+    font-size: 0.6rem;
+    font-weight: 500;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    padding: 2px 7px;
+    border: 1px solid var(--rule);
+    color: var(--muted);
+    white-space: nowrap;
+  }
+  .tag--system { color: var(--system); border-color: var(--system); background: var(--system-soft); }
+  .tag--auto   { color: var(--accent); border-color: var(--accent); background: var(--accent-soft); }
+
+  /* ─── Closing ──────────────────────────────────────────────────────── */
+  .closing {
+    border-top: 2px solid var(--ink);
+    padding-top: 22px;
+    margin-top: 8px;
+  }
+  .closing h3 {
+    font-family: var(--f-display);
+    font-weight: 700;
+    font-size: 1.05rem;
+    letter-spacing: -0.012em;
+    margin: 0 0 12px;
+  }
+  .closing ul { margin: 0; padding-left: 1.1em; max-width: 66ch; }
+  .closing li { margin-bottom: 7px; color: var(--ink-soft); font-size: 0.95rem; }
+  .closing li::marker { color: var(--accent); }
+
+  .colophon {
+    margin-top: 34px;
+    padding-top: 16px;
+    border-top: 1px solid var(--rule);
+    font-family: var(--f-mono);
+    font-size: 0.68rem;
+    letter-spacing: 0.06em;
+    color: var(--muted);
+    line-height: 1.7;
+  }
+
+  @media (max-width: 600px) {
+    .masthead-inner { padding: 36px 20px 28px; }
+    .shell { padding: 0 20px 64px; gap: 32px; }
+    .rail { padding-top: 32px; }
+    main { padding-top: 8px; }
+    .caps > li { padding: 14px 15px; }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    * { animation: none !important; transition: none !important; }
+  }
+</style>
+
+<header class="masthead">
+  <div class="masthead-inner">
+    <p class="eyebrow">Southern Lanka &middot; CareCode &middot; Capability Register</p>
+    <h1>Implemented capabilities through Attendance Management</h1>
+    <p class="standfirst">
+      A consolidated view of what is built and running for the Southern Lanka tenant, from
+      multi-company setup through to the live attendance and roster engine. Payroll is excluded
+      by request and is summarised separately.
+    </p>
+    <dl class="facts">
+      <div class="fact"><dt>Tenant</dt><dd>Southern Lanka</dd></div>
+      <div class="fact"><dt>Product</dt><dd>CareCode</dd></div>
+      <div class="fact"><dt>Domain</dt><dd>carecode.org</dd></div>
+      <div class="fact"><dt>Modules covered</dt><dd>Five</dd></div>
+      <div class="fact"><dt>Status</dt><dd>In production</dd></div>
+    </dl>
+  </div>
+</header>
+
+<div class="shell">
+  <nav class="rail" aria-label="Modules">
+    <p class="rail-title">Build order</p>
+    <ol>
+      <li><a href="#m1"><span class="num">01</span><span>Tenant &amp; Company Hierarchy</span></a></li>
+      <li><a href="#m2"><span class="num">02</span><span>Users &amp; Role-Based Access</span></a></li>
+      <li><a href="#m3"><span class="num">03</span><span>HOD Scope &amp; Reporting Lines</span></a></li>
+      <li><a href="#m4"><span class="num">04</span><span>Shifts &amp; Scheduling Engine</span></a></li>
+      <li><a href="#m5"><span class="num">05</span><span>Attendance &amp; Roster Engine</span></a></li>
+      <li><a href="#scope"><span class="num">&mdash;</span><span>Scope &amp; exclusions</span></a></li>
+    </ol>
+  </nav>
+
+  <main>
+    <div class="lede-note">
+      <p>
+        The five modules below are listed in dependency order: each one relies on the data and
+        permissions established by the one above it. A department cannot be managed before its
+        company exists; a Head of Department cannot be scoped before departments are assigned;
+        late and early minutes cannot be calculated before a shift is rostered.
+      </p>
+      <p>
+        Capabilities marked <span class="tag tag--auto">Southern Lanka only</span> are gated by
+        tenant feature flags and do not appear on any other deployment. Those marked
+        <span class="tag tag--system">Automated</span> run on a schedule without operator action.
+      </p>
+    </div>
+
+    <!-- ─── 01 ─────────────────────────────────────────────────────── -->
+    <section class="module" id="m1">
+      <div class="module-head">
+        <p class="module-num">01 &mdash; FOUNDATION</p>
+        <h2>Tenant &amp; Multi-Company Hierarchy</h2>
+        <p class="module-lede">
+          One deployment serves several organisations. Southern Lanka's data lives in its own
+          isolated database, resolved automatically from the domain, with its own branding and its
+          own set of enabled modules.
+        </p>
+      </div>
+      <ul class="caps">
+        <li>
+          <h3 class="cap-title">Domain-resolved data isolation</h3>
+          <p class="cap-body">
+            The database is selected per request from the hostname &mdash; carecode.org resolves to
+            the dedicated <code>southernlanka</code> database. No Southern Lanka record is ever
+            readable from another tenant's domain, and no rebuild or separate deployment is needed.
+          </p>
+        </li>
+        <li>
+          <h3 class="cap-title">Per-tenant module switches</h3>
+          <p class="cap-body">
+            Optional modules are turned on or off by feature flag rather than by hard-coded checks.
+            Southern Lanka runs with Payroll and the changelog enabled; the Suspense expense-float
+            module and the Solar cross-link are switched off.
+          </p>
+        </li>
+        <li>
+          <h3 class="cap-title">Independent brand identity</h3>
+          <p class="cap-body">
+            Application name, theme colour, favicon, install icons and PWA manifest are all served
+            from the tenant's own asset set, so the installed app presents as CareCode throughout.
+          </p>
+        </li>
+        <li>
+          <h3 class="cap-title">Company register</h3>
+          <p class="cap-body">
+            Create and edit companies with address, logo, brand accent colour and an assigned
+            supervisor list. Logo URLs are validated on entry rather than failing silently in the UI.
+          </p>
+        </li>
+        <li>
+          <h3 class="cap-title">Department tree with sub-departments <span class="tag tag--auto">Southern Lanka only</span></h3>
+          <p class="cap-body">
+            Every department belongs to exactly one company and may nest to any depth through a
+            parent department. Departments can be activated, deactivated, and deleted &mdash; deletion
+            is a recoverable soft delete, never a permanent erase.
+          </p>
+        </li>
+        <li>
+          <h3 class="cap-title">Employee-to-hierarchy mapping</h3>
+          <p class="cap-body">
+            Each employee record carries its company and department. This single mapping drives every
+            downstream scope: who appears on a roster, whose attendance a manager can open, and where
+            a leave request is routed.
+          </p>
+        </li>
+        <li>
+          <h3 class="cap-title">Cross-tenant administrator access</h3>
+          <p class="cap-body">
+            Active super administrators are mirrored into every tenant database so they can sign in
+            and administer any organisation, with safeguards that prevent a mirrored account from
+            overwriting a real employee record.
+          </p>
+        </li>
+      </ul>
+    </section>
+
+    <!-- ─── 02 ─────────────────────────────────────────────────────── -->
+    <section class="module" id="m2">
+      <div class="module-head">
+        <p class="module-num">02 &mdash; ACCESS CONTROL</p>
+        <h2>User Management &amp; Role-Based Access</h2>
+        <p class="module-lede">
+          Roles are configuration, not code. Administrators create job titles, tick the capabilities
+          each one carries, and place it in the approval hierarchy &mdash; all from the application,
+          with no release required.
+        </p>
+      </div>
+      <ul class="caps">
+        <li>
+          <h3 class="cap-title">Data-driven role registry</h3>
+          <p class="cap-body">
+            Roles are stored records with a display name, category, position in the tree and an
+            active flag. Built-in roles are protected from deletion; everything else is fully
+            editable by a System Administrator.
+          </p>
+        </li>
+        <li>
+          <h3 class="cap-title">Granular capability model</h3>
+          <p class="cap-body">
+            Thirty-eight independent capability switches gate every page and action &mdash; own
+            attendance, approvals, leave administration, schedules, day offs, departments, companies,
+            users, notifications, reports and each payroll stage. Each is described in plain language
+            on the Roles screen.
+          </p>
+        </li>
+        <li>
+          <h3 class="cap-title">Separate view and manage rights <span class="tag tag--auto">Southern Lanka only</span></h3>
+          <p class="cap-body">
+            Departments, Companies and Schedules each carry a read-only capability alongside the
+            manage capability, so a role can be given visibility without edit rights &mdash;
+            independently of blanket user administration.
+          </p>
+        </li>
+        <li>
+          <h3 class="cap-title">Approval hierarchy</h3>
+          <p class="cap-body">
+            Each role names its parent, forming the approval tree. Ancestors, descendants and peer
+            lines are resolved from that tree to determine who may approve whom, with cycle
+            protection when a role is re-parented.
+          </p>
+        </li>
+        <li>
+          <h3 class="cap-title">Trainee access variants</h3>
+          <p class="cap-body">
+            Every employee role carries a second capability set applied automatically when the person's
+            employment type is Trainee &mdash; typically attendance and leave without approval or
+            administration rights.
+          </p>
+        </li>
+        <li>
+          <h3 class="cap-title">System Administrator override</h3>
+          <p class="cap-body">
+            The System Administrator role implies every management capability, so a newly added
+            capability never has to be granted retroactively and an administrator can never be locked
+            out by an incomplete role registry.
+          </p>
+        </li>
+        <li>
+          <h3 class="cap-title">Per-user Super Admin override <span class="tag tag--auto">Southern Lanka only</span></h3>
+          <p class="cap-body">
+            A single toggle on a user's record grants that individual full System Administrator access
+            everywhere &mdash; approvals, pages and reports &mdash; without changing their job title
+            or the capabilities of everyone else holding that role.
+          </p>
+        </li>
+        <li>
+          <h3 class="cap-title">User directory and lifecycle</h3>
+          <p class="cap-body">
+            Add, view, edit, deactivate and reset access for employees, with full personal, contact,
+            employment and emergency detail, plus validated NIC, phone and email entry. A read-only
+            directory capability exists for roles that need visibility only.
+          </p>
+        </li>
+        <li>
+          <h3 class="cap-title">Bulk user import</h3>
+          <p class="cap-body">
+            Employees can be onboarded in bulk from a spreadsheet rather than entered one at a time,
+            with parsing and validation before anything is written.
+          </p>
+        </li>
+        <li>
+          <h3 class="cap-title">Self-registration with administrator approval <span class="tag tag--auto">Southern Lanka only</span></h3>
+          <p class="cap-body">
+            Staff can register themselves on carecode.org. The account is held with a placeholder
+            employee number and flagged as pending until an administrator assigns the real number,
+            which re-keys the record.
+          </p>
+        </li>
+        <li>
+          <h3 class="cap-title">Attendance method policy per employee <span class="tag tag--auto">Southern Lanka only</span></h3>
+          <p class="cap-body">
+            Each employee is explicitly permitted to mark attendance by fingerprint terminal, by
+            mobile application, or both. Records predating the policy are shown as "Not set" rather
+            than silently assumed.
+          </p>
+        </li>
+      </ul>
+    </section>
+
+    <!-- ─── 03 ─────────────────────────────────────────────────────── -->
+    <section class="module" id="m3">
+      <div class="module-head">
+        <p class="module-num">03 &mdash; DELEGATED AUTHORITY</p>
+        <h2>HOD Scope &amp; Reporting Line Management</h2>
+        <p class="module-lede">
+          Head of Department is a role; the departments a person heads are assigned to them
+          individually. That assignment is the boundary for everything a HOD can see and approve,
+          and it is enforced when data is loaded, not merely hidden in the interface.
+        </p>
+      </div>
+      <ul class="caps">
+        <li>
+          <h3 class="cap-title">Multi-department assignment</h3>
+          <p class="cap-body">
+            A Head of Department selects any number of departments on their user record. One person
+            can head several departments across the hierarchy, independently of the department they
+            personally sit in.
+          </p>
+        </li>
+        <li>
+          <h3 class="cap-title">Strict scope resolution</h3>
+          <p class="cap-body">
+            A HOD role with no departments actually assigned resolves to no access &mdash; never to
+            "sees everything". The scope never falls back to the person's own home department, which
+            is where they sit rather than what they manage.
+          </p>
+        </li>
+        <li>
+          <h3 class="cap-title">Enforcement at the data layer</h3>
+          <p class="cap-body">
+            Employee lists, attendance records, roster assignments and stored monthly summaries are
+            all filtered to the managed departments as they load, so out-of-scope staff are never
+            held in the session at all.
+          </p>
+        </li>
+        <li>
+          <h3 class="cap-title">Company pinning and filter locking</h3>
+          <p class="cap-body">
+            A scoped HOD's company is resolved from their departments and locked, with the company
+            picker hidden. A single-department HOD sees that department pre-selected and disabled;
+            a multi-department HOD gets an "All My Departments" option and their own departments only.
+          </p>
+        </li>
+        <li>
+          <h3 class="cap-title">Leave approval routing</h3>
+          <p class="cap-body">
+            A leave request fans out to every active Head of Department covering the applicant's
+            department, plus every approving tier above them in the role tree. A HOD is never
+            included as an approver of their own request &mdash; it escalates upward instead.
+          </p>
+        </li>
+        <li>
+          <h3 class="cap-title">Attendance edit routing</h3>
+          <p class="cap-body">
+            Attendance correction requests route to the covering Head of Department, falling back to
+            the nearest approving tier when no HOD covers the applicant, rather than broadcasting to
+            every approver.
+          </p>
+        </li>
+        <li>
+          <h3 class="cap-title">Overtime approval routing <span class="tag tag--auto">Southern Lanka only</span></h3>
+          <p class="cap-body">
+            Overtime requests follow the same routing as leave &mdash; covering Heads of Department
+            plus the role tree above them &mdash; behind a dedicated approval capability.
+          </p>
+        </li>
+        <li>
+          <h3 class="cap-title">Roster and day-off authority</h3>
+          <p class="cap-body">
+            A Head of Department with assigned departments automatically receives day-off declaration
+            and management rights, and reaches the Schedule and Attendance View screens without needing
+            blanket user-administration capability.
+          </p>
+        </li>
+        <li>
+          <h3 class="cap-title">Consistent gating end to end</h3>
+          <p class="cap-body">
+            Navigation, route access and page content all apply the identical scope test, so a link
+            never appears for a screen the person cannot open.
+          </p>
+        </li>
+      </ul>
+    </section>
+
+    <!-- ─── 04 ─────────────────────────────────────────────────────── -->
+    <section class="module" id="m4">
+      <div class="module-head">
+        <p class="module-num">04 &mdash; ROSTERING</p>
+        <h2>Shift Definition &amp; Scheduling Engine</h2>
+        <p class="module-lede">
+          Shifts are defined once and reused across departments. Rostering is a calendar grid of
+          employees against dates, supporting split days, back-to-back duty, shifts that cross
+          midnight, recurring weekly patterns and bulk import from spreadsheet.
+        </p>
+      </div>
+      <ul class="caps">
+        <li>
+          <h3 class="cap-title">Reusable shift templates <span class="tag tag--auto">Southern Lanka only</span></h3>
+          <p class="cap-body">
+            A shift is a name and a 24-hour time window, offered under any number of departments at
+            once &mdash; one "Morning Shift" can serve Nursing and Reception simultaneously. Shifts can
+            be deactivated, and deletion is refused while a live roster still references them.
+          </p>
+        </li>
+        <li>
+          <h3 class="cap-title">Restricted shift eligibility</h3>
+          <p class="cap-body">
+            A shift can be limited to named employees and named roles on top of its department scope.
+            A restricted shift saved with no department becomes organisation-wide &mdash; the
+            mechanism behind Head of Department and designated executive shifts.
+          </p>
+        </li>
+        <li>
+          <h3 class="cap-title">Overnight shift handling</h3>
+          <p class="cap-body">
+            A shift whose end time falls at or before its start is treated as crossing midnight
+            consistently across assignment, overlap detection, hour totals and attendance scoring, and
+            is labelled with a next-day marker so it is never misread as an earlier same-day time.
+          </p>
+        </li>
+        <li>
+          <h3 class="cap-title">Calendar roster grid</h3>
+          <p class="cap-body">
+            Select a department to see its employees as rows and every date of the month as columns,
+            with a frozen employee column, month and year jump, and search within the department.
+          </p>
+        </li>
+        <li>
+          <h3 class="cap-title">Cell assignment and split days</h3>
+          <p class="cap-body">
+            Clicking a cell offers the shifts that employee is eligible for on that date. More than
+            one shift can be placed on the same cell, covering both back-to-back duty and genuine
+            split days.
+          </p>
+        </li>
+        <li>
+          <h3 class="cap-title">Overlap warning</h3>
+          <p class="cap-body">
+            Assigning a shift whose window overlaps one already placed on that cell raises an explicit
+            confirmation naming the clashing shift, so the decision is made deliberately.
+          </p>
+        </li>
+        <li>
+          <h3 class="cap-title">Holiday classification captured at assignment</h3>
+          <p class="cap-body">
+            Poya, Public and Mercantile holidays are shown on the date header and stamped onto the
+            assignment when it is made. Editing the holiday list later never retroactively changes
+            what a past roster recorded.
+          </p>
+        </li>
+        <li>
+          <h3 class="cap-title">Leave and day-off overlays</h3>
+          <p class="cap-body">
+            Approved and pending leave, and declared day offs, appear as distinct overlays on the
+            grid. A shift can still be assigned over them, with the conflict visible before the
+            decision rather than discovered afterwards.
+          </p>
+        </li>
+        <li>
+          <h3 class="cap-title">Day-off declaration and bulk import</h3>
+          <p class="cap-body">
+            Day offs are declared per employee and date, imported in bulk from a spreadsheet, or
+            removed, with the source of each recorded as manual, imported or recurring.
+          </p>
+        </li>
+        <li>
+          <h3 class="cap-title">Recurring weekly patterns <span class="tag tag--system">Automated</span></h3>
+          <p class="cap-body">
+            A pattern captures "this shift, every selected weekday, from this date" with an optional
+            end date. It writes ordinary roster entries on a rolling horizon, extended weekly by a
+            scheduled job, so every existing view and report reads it unchanged. Recurring day-off
+            patterns work the same way for Heads of Department and designated executives.
+          </p>
+        </li>
+        <li>
+          <h3 class="cap-title">Occurrence and series control</h3>
+          <p class="cap-body">
+            A recurring entry can be removed for a single date or the whole series ended, with the
+            number of future dates cleared reported back. The engine only ever touches entries it
+            created &mdash; a hand-placed shift on the same date is left alone.
+          </p>
+        </li>
+        <li>
+          <h3 class="cap-title">Bulk roster import</h3>
+          <p class="cap-body">
+            A monthly roster spreadsheet &mdash; one row per employee, one column per date, shift
+            names separated by comma or slash &mdash; is parsed into reviewable draft rows. Names are
+            matched case-insensitively against the department's registered shifts; anything unrecognised
+            is flagged rather than guessed, and nothing is written until the reviewer confirms.
+          </p>
+        </li>
+        <li>
+          <h3 class="cap-title">Monthly workload totals</h3>
+          <p class="cap-body">
+            Each employee row carries their assigned shift count, total assigned hours for the month
+            and approved leave days, calculated with correct handling of overnight windows.
+          </p>
+        </li>
+        <li>
+          <h3 class="cap-title">Employee self-service schedule</h3>
+          <p class="cap-body">
+            Staff see their own roster on a calendar with a next-shift lookahead, updating live as the
+            roster changes &mdash; read-only, and scoped strictly to themselves.
+          </p>
+        </li>
+      </ul>
+    </section>
+
+    <!-- ─── 05 ─────────────────────────────────────────────────────── -->
+    <section class="module" id="m5">
+      <div class="module-head">
+        <p class="module-num">05 &mdash; ATTENDANCE</p>
+        <h2>Attendance Tracking &amp; Real-Time Roster Engine</h2>
+        <p class="module-lede">
+          A monthly attendance matrix scored against each employee's actual rostered shifts rather
+          than a fixed clock-in cutoff. Fingerprint and mobile punches land in the same record, and
+          anything implausible is flagged for a supervisor rather than silently corrected.
+        </p>
+      </div>
+      <ul class="caps">
+        <li>
+          <h3 class="cap-title">Monthly attendance matrix</h3>
+          <p class="cap-body">
+            One row per employee and one column per day, with a frozen employee column, month
+            stepping, and filters by name, employee number, EPF number, department and role. Fully
+            scoped for Heads of Department.
+          </p>
+        </li>
+        <li>
+          <h3 class="cap-title">Fingerprint and mobile capture in one record</h3>
+          <p class="cap-body">
+            Fingerprint terminal punches are written into the same attendance sessions the mobile
+            application uses, so they appear immediately in every existing report with no separate
+            reconciliation. Each punch shows its own source badge &mdash; terminal or mobile &mdash;
+            for check-in and check-out independently.
+          </p>
+        </li>
+        <li>
+          <h3 class="cap-title">Terminal integration safeguards</h3>
+          <p class="cap-body">
+            The terminal interface is idempotent per scan, debounces duplicate punches, validates the
+            device and employee, and returns coded errors. A rejected scan is not locked in, so an
+            offline terminal's retry queue still succeeds once the underlying issue is fixed.
+          </p>
+        </li>
+        <li>
+          <h3 class="cap-title">Multi-session and overnight days</h3>
+          <p class="cap-body">
+            A day holds any number of check-in and check-out cycles. A session that runs past midnight
+            stays filed under the day it started, so an overnight shift is counted once and in the
+            right place.
+          </p>
+        </li>
+        <li>
+          <h3 class="cap-title">Contiguous duty merging</h3>
+          <p class="cap-body">
+            Same-day shifts that meet exactly &mdash; a zero-minute gap &mdash; are merged into one
+            duty block anchored at the first start and the last end, so a missing punch between two
+            back-to-back shifts is never counted as a late arrival or an early departure.
+          </p>
+        </li>
+        <li>
+          <h3 class="cap-title">Split-day separation</h3>
+          <p class="cap-body">
+            Same-day shifts with a real gap between them stay separate blocks, each matched to its own
+            attendance session in order and scored on its own. The gap is never counted as working time.
+          </p>
+        </li>
+        <li>
+          <h3 class="cap-title">Shortfall calculation against the roster</h3>
+          <p class="cap-body">
+            Late minutes are measured from the block's scheduled start to the actual check-in; early
+            departure from the actual check-out to the block's scheduled end. Both floor at zero, so
+            arriving early or staying late never offsets a shortfall elsewhere.
+          </p>
+        </li>
+        <li>
+          <h3 class="cap-title">At-a-glance cell states</h3>
+          <p class="cap-body">
+            Every cell reads as on-time, late, early departure, absent, future or holiday, with
+            additional markers distinguishing merged continuous duty from split shifts on the same day.
+          </p>
+        </li>
+        <li>
+          <h3 class="cap-title">Cell detail view</h3>
+          <p class="cap-body">
+            Opening a cell shows each duty block's scheduled window against the actual punches, the
+            constituent shifts of a merged block, the capture method for each punch, the holiday
+            classification, and the terminal device identifier retrieved on demand.
+          </p>
+        </li>
+        <li>
+          <h3 class="cap-title">Inline quick-assign</h3>
+          <p class="cap-body">
+            A missing roster entry can be assigned retrospectively from inside the cell itself,
+            filtered to shifts that employee is eligible for. Cell colour, late and early figures and
+            the monthly totals all recalculate immediately, and the panel stays open so a split day
+            can receive its second shift.
+          </p>
+        </li>
+        <li>
+          <h3 class="cap-title">Persisted monthly totals</h3>
+          <p class="cap-body">
+            Total late minutes, total early-departure minutes, late days and early-departure days are
+            stored per employee per month as a stable figure for HR to act on. The screen reports;
+            it never deducts pay or leave on its own.
+          </p>
+        </li>
+        <li>
+          <h3 class="cap-title">Exception review workflow</h3>
+          <p class="cap-body">
+            Implausibly long sessions, sessions reopened after a missed check-out, and sessions split
+            by a back-dated roster change raise a review item that moves from flagged, to in review,
+            to resolved &mdash; recorded as a time correction, an approved overtime case, or accepted
+            as is, with a note and optional link to the related request.
+          </p>
+        </li>
+        <li>
+          <h3 class="cap-title">Raw punches are never rewritten</h3>
+          <p class="cap-body">
+            Original timestamps are preserved exactly as captured. Interpretation lives in a separate
+            layer that allocates a session into rostered and unverified-extra time, so the audit trail
+            of what the terminal actually recorded stays intact.
+          </p>
+        </li>
+        <li>
+          <h3 class="cap-title">Open-session monitor <span class="tag tag--system">Automated</span></h3>
+          <p class="cap-body">
+            A scheduled job runs every fifteen minutes and flags sessions still open past the
+            plausible maximum. It only ever raises a review &mdash; it never closes a session or
+            truncates recorded hours.
+          </p>
+        </li>
+        <li>
+          <h3 class="cap-title">Recalculation on retrospective roster change</h3>
+          <p class="cap-body">
+            Back-dating, editing or removing a roster entry queues a recalculation for that employee
+            and date range, so attendance interpretation stays consistent with the roster it is
+            scored against.
+          </p>
+        </li>
+        <li>
+          <h3 class="cap-title">Attendance correction requests</h3>
+          <p class="cap-body">
+            Employees raise correction requests against a record; approvers consider, approve or
+            reject them with a reason, and the outcome is recorded against the request.
+          </p>
+        </li>
+      </ul>
+    </section>
+
+    <!-- ─── Closing ─────────────────────────────────────────────────── -->
+    <section class="closing" id="scope">
+      <h3>Scope and exclusions</h3>
+      <ul>
+        <li>
+          <strong>Payroll is excluded by request.</strong> It is implemented for Southern Lanka
+          &mdash; payroll settings, employee pay profiles, monthly runs with separate generate,
+          review and finalise authority, loans, salary advances, payslips and payroll reports
+          &mdash; and is summarised separately.
+        </li>
+        <li>
+          <strong>Leave management</strong> is referenced here only where it touches HOD routing and
+          the roster overlays. Leave types, balances, accrual rules and the request lifecycle are a
+          module in their own right.
+        </li>
+        <li>
+          <strong>The Suspense expense-float module</strong> is built but switched off for Southern
+          Lanka, and is not part of this register.
+        </li>
+        <li>
+          <strong>Working patterns</strong> &mdash; configurable expected hours and rest days per
+          role, location or company &mdash; are designed but not yet built, and are tracked as
+          planned work.
+        </li>
+      </ul>
+      <p class="colophon">
+        Prepared 3 September 2026 &middot; Southern Lanka tenant &middot; CareCode<br>
+        Compiled from the implemented application, not from specification documents.
+      </p>
+    </section>
+  </main>
+</div>

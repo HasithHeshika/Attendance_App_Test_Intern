@@ -1,0 +1,118 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Helper functions
+    function isAuth() {
+      return request.auth != null;
+    }
+
+    function getUserData() {
+      return get(/databases/$(database)/documents/users/$(getUserEpf())).data;
+    }
+
+    function getUserEpf() {
+      // Users doc is keyed by epf_number; look up by uid
+      return request.auth.uid; // Overridden by actual lookup below
+    }
+
+    function userRole() {
+      // Read role from auth custom claims (set by Admin SDK on user creation)
+      return request.auth.token.role;
+    }
+
+    function isAdmin() { return userRole() == 'Admin'; }
+    function isHR()    { return userRole() == 'HR' || isAdmin(); }
+    function isExec()  { return userRole() in ['Executive', 'Top Management', 'Admin']; }
+    function canApprove() { return userRole() in ['Executive', 'Top Management', 'HR', 'Admin']; }
+
+    // ─── Users ────────────────────────────────────────────────────────────
+    match /users/{epf} {
+      // Read: any authenticated user can read user profiles (needed for supervisor search)
+      allow read: if isAuth();
+      // Create: only Admin
+      allow create: if isAdmin();
+      // Update: own profile (limited fields) OR Admin
+      allow update: if isAuth() && (
+        isAdmin() ||
+        (request.auth.uid == resource.data.uid &&
+          request.resource.data.diff(resource.data).affectedKeys()
+            .hasOnly(['first_name','last_name','phone_personal','address','avatar_url','fcm_token','updated_at','display_name','name_tokens']))
+      );
+      allow delete: if isAdmin();
+    }
+
+    // ─── Companies ────────────────────────────────────────────────────────
+    match /companies/{companyId} {
+      allow read:   if isAuth();
+      allow write:  if isAdmin();
+    }
+
+    // ─── Outstation Locations ─────────────────────────────────────────────
+    match /outstation_locations/{locId} {
+      allow read:   if isAuth();
+      allow write:  if isAdmin();
+    }
+
+    // ─── Leave Types ──────────────────────────────────────────────────────
+    match /leave_types/{ltId} {
+      allow read:   if isAuth();
+      allow write:  if isAdmin();
+    }
+
+    // ─── Leave Balances ───────────────────────────────────────────────────
+    match /leave_balances/{balId} {
+      allow read:   if isAuth();
+      allow write:  if isAdmin() || isHR();
+    }
+
+    // ─── Attendances ──────────────────────────────────────────────────────
+    match /attendances/{attId} {
+      // Any authenticated user can read attendance records
+      // (needed for approvers to see their team's records)
+      allow read: if isAuth();
+
+      // Create: own attendance only (epf embedded in doc ID)
+      allow create: if isAuth() &&
+        request.resource.data.epf_number != null;
+
+      // Update: own record (check-out fields only) OR approver updating status
+      allow update: if isAuth() && (
+        isAdmin() ||
+        isHR() ||
+        canApprove() ||
+        request.resource.data.epf_number == request.auth.token.epf_number
+      );
+
+      allow delete: if isAdmin();
+    }
+
+    // ─── Attendance Edit Requests ─────────────────────────────────────────
+    match /attendance_edit_requests/{reqId} {
+      allow read:   if isAuth();
+      allow create: if isAuth() &&
+        request.resource.data.epf_number != null;
+      allow update: if isAuth() && (canApprove() || isAdmin());
+      allow delete: if isAdmin();
+    }
+
+    // ─── Leaves ───────────────────────────────────────────────────────────
+    match /leaves/{leaveId} {
+      allow read:   if isAuth();
+      // Create: any employee can apply
+      allow create: if isAuth();
+      // Update: own pending leave (to cancel/edit) OR approver
+      allow update: if isAuth() && (
+        canApprove() ||
+        (resource.data.epf_number == request.auth.token.epf_number &&
+         resource.data.status == 'pending')
+      );
+      allow delete: if isAuth() && (
+        isAdmin() ||
+        (resource.data.epf_number == request.auth.token.epf_number &&
+         resource.data.status == 'pending')
+      );
+    }
+  }
+}

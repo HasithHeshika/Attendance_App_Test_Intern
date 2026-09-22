@@ -1,0 +1,47 @@
+[build]
+  command = "npm run build"
+  publish = ".next"
+
+# ─── Secrets Scanning ─────────────────────────────────────────────────────────
+# Firebase NEXT_PUBLIC_* API keys are INTENTIONALLY embedded in client-side JS.
+# They identify the Firebase project but do NOT grant access — all actual security
+# is enforced by Firebase Security Rules server-side. Netlify's smart detection
+# incorrectly flags these as secrets, so we disable it here.
+# Real secrets (e.g. CALENDARIFIC_API_KEY) are non-NEXT_PUBLIC_ and never reach
+# the client bundle, so they remain fully protected.
+[build.environment]
+  SECRETS_SCAN_SMART_DETECTION_ENABLED = "false"
+  NEXT_PUBLIC_API_URL = "https://masters.altavision.lk/api"
+
+# ─── Cache Headers ────────────────────────────────────────────────────────────
+[[headers]]
+  for = "/_next/static/*"
+  [headers.values]
+    Cache-Control = "public, max-age=31536000, immutable"
+
+# ─── Redirects ────────────────────────────────────────────────────────────────
+[[redirects]]
+  from   = "/_next/image"
+  to     = "/.netlify/images?url=:url&w=:width&q=:quality"
+  status = 200
+  query  = { url = ":url", w = ":width", q = ":quality" }
+
+[[redirects]]
+  from   = "/_ipx/*"
+  to     = "/.netlify/images?url=:url&w=:width&q=:quality"
+  status = 200
+  query  = { url = ":url", w = ":width", q = ":quality" }
+
+# ─── Functions ───────────────────────────────────────────────────────────────
+# App-owned Netlify Functions, deployed alongside the ones @netlify/plugin-nextjs
+# generates for the Next.js server. Each Scheduled Function carries its own cadence in an
+# `export const config = { schedule }` — no external cron/pinger required:
+#   · auto-checkout-sweep.mjs      → /api/cron/auto-checkout          every 15 min
+#   · schedule-pattern-extend.mjs  → /api/cron/schedule-pattern-extend  weekly (Mon 03:00 UTC)
+#   · greetings-daily.mjs          → /api/cron/greetings               daily 02:30 UTC (08:00 Colombo)
+[functions]
+  directory = "netlify/functions"
+
+# ─── Plugins ──────────────────────────────────────────────────────────────────
+[[plugins]]
+  package = "@netlify/plugin-nextjs"

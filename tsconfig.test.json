@@ -1,0 +1,61 @@
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    // chamaryFormat uses Intl.DateTimeFormat.formatRange, whose typing lives in the ES2021
+    // Intl lib; the app tsconfig already compiles against a newer lib than this one did.
+    "lib": ["ES2022", "DOM"],
+    "module": "commonjs",
+    "moduleResolution": "node",
+    "esModuleInterop": true,
+    "strict": true,
+    "skipLibCheck": true,
+    // The tenant snapshot is a JSON module (src/generated/tenants.snapshot.json), reached
+    // through src/lib/tenantSnapshot.ts.
+    "resolveJsonModule": true,
+    "types": ["node"],
+    "rootDir": ".",
+    "outDir": "./.test-out",
+    "baseUrl": ".",
+    "paths": { "@/*": ["src/*"] }
+  },
+  "include": [
+    "src/lib/maintenance.ts",
+    "src/lib/meals.ts",
+    "src/lib/foodReport.ts",
+    "src/lib/aiUsageBudget.ts",
+    "src/lib/billNumbering.ts",
+    "src/lib/billDuplicates.ts",
+    "src/lib/voucherCategories.ts",
+    "src/lib/suspenseBillSort.ts",
+    "src/lib/billDatePlausibility.ts",
+    "src/lib/payroll/payrollCalculationEngine.ts",
+    "src/lib/shiftAutoClose.ts",
+    "src/lib/attendanceBiometric.ts",
+    "src/lib/suspenseBalanceImport.ts",
+    "src/lib/userMonthlyReport.ts",
+    "src/lib/approvalRouting.ts",
+    "src/lib/greetings.ts",
+    "src/lib/greetingMessages.ts",
+    "src/lib/notificationCenter.ts",
+    "src/lib/foodCost.ts",
+    "src/lib/suspenseMonthView.ts",
+    "src/lib/chamaryMonth.ts",
+    "src/lib/mealAutoServe.ts",
+    "src/lib/workPatterns.ts",
+    "src/components/attendance/workDayModel.ts",
+    "src/components/suspense/holder/activityItems.ts",
+    "src/lib/suspenseLimits.ts",
+    "src/lib/settingsBackup.ts",
+    "src/lib/chamaryClosures.ts",
+    "src/lib/foodAllowance.ts",
+    "src/lib/panelApprovals.ts",
+    "src/lib/approvalQueueCache.ts",
+    "src/lib/permissions.ts",
+    "src/lib/bootstrapAdmins.ts",
+    "src/lib/pushFormat.ts",
+    "src/lib/imageResize.ts",
+    "src/lib/overviewData.ts",
+    "src/lib/leaveQuotaScope.ts",
+    "src/lib/__tests__/*.test.ts"
+  ]
+}

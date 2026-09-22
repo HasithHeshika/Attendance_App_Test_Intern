@@ -1,0 +1,29 @@
+{
+  "name": "PearlCluster",
+  "short_name": "PearlCluster",
+  "description": "Enterprise Attendance & Leave Management",
+  "start_url": "/dashboard",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "portrait-primary",
+  "background_color": "#F7F8FA",
+  "theme_color": "#0C8ECA",
+  "categories": ["business", "productivity"],
+  "icons": [
+    {
+      "src": "/app.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/app.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ],
+  "screenshots": [],
+  "related_applications": [],
+  "prefer_related_applications": false
+}

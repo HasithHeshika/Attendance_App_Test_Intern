@@ -1,0 +1,471 @@
+/* Fonts are loaded via next/font in src/app/layout.tsx (self-hosted + preloaded),
+   exposed as --font-sans / --font-mono. No render-blocking Google Fonts @import. */
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* ════════════════════════════════════════════════════════════════════════════
+   PearlCluster — Design System
+   Clean-enterprise aesthetic · logo-derived palette (#0C8ECA azure-blue / violet / emerald)
+   Full shadcn token set for both themes. Default theme is dark.
+   ════════════════════════════════════════════════════════════════════════════ */
+
+@layer base {
+  /* ─── Dark (default — applied to :root so SSR before hydration is dark) ─────── */
+  :root,
+  .dark {
+    --background:            225 24% 9%;    /* deep slate */
+    --foreground:            210 20% 96%;
+
+    --card:                 224 22% 13%;
+    --card-foreground:      210 20% 96%;
+
+    --popover:              224 24% 12%;
+    --popover-foreground:   210 20% 96%;
+
+    --primary:              201 80% 58%;   /* #0C8ECA azure-blue — lightened for dark surfaces */
+    --primary-foreground:   0 0% 100%;
+
+    --secondary:            224 18% 18%;
+    --secondary-foreground: 210 20% 92%;
+
+    --muted:                224 18% 16%;
+    --muted-foreground:     218 14% 64%;
+
+    --accent:               224 18% 19%;   /* neutral hover/active surface */
+    --accent-foreground:    210 20% 96%;
+
+    --destructive:          350 85% 65%;   /* rose — absent / reject */
+    --destructive-foreground: 0 0% 100%;
+
+    --success:              201 80% 58%;    /* #0C8ECA azure-blue — present / approved */
+    --success-foreground:   0 0% 100%;
+
+    --warning:              38 92% 58%;     /* amber — pending (action only) */
+    --warning-foreground:   38 80% 10%;
+
+    --warn-strong:          24 90% 56%;     /* orange — escalating warning (e.g. low leave balance) */
+    --warn-strong-foreground: 0 0% 100%;
+
+    --brand:                201 80% 58%;    /* #0C8ECA azure-blue — pairs with primary */
+    --brand-foreground:     0 0% 100%;
+
+    --border:               224 16% 20%;
+    --input:                224 16% 24%;
+    --ring:                 201 80% 58%;
+    --radius:               0.875rem;
+
+    /* Sidebar surface (slightly distinct from page background) */
+    --sidebar:              225 24% 11%;
+    --sidebar-foreground:   210 20% 90%;
+
+    /* Surface helpers (used by .glass / sections) */
+    --surface:             224 22% 13%;
+    --surface-2:           224 20% 15%;
+
+    /* Daylight surfaces — clean solid cards + soft shadow (no frosted glass). */
+    --glass-bg:            224 22% 13%;
+    --glass-strong-bg:     224 22% 14%;
+    --glass-border:        224 16% 22%;
+    --glass-highlight:     hsla(0, 0%, 100%, 0.05);
+    --glass-shadow:        0 1px 2px rgb(0 0 0 / 0.30), 0 18px 44px -22px rgb(0 0 0 / 0.65);
+
+    color-scheme: dark;
+  }
+
+  /* ─── Light ────────────────────────────────────────────────────────────────── */
+  .light {
+    --background:            220 24% 98%;   /* #F7F8FA — airy off-white */
+    --foreground:            222 47% 11%;   /* slate-900 */
+
+    --card:                 0 0% 100%;
+    --card-foreground:      222 47% 11%;
+
+    --popover:              0 0% 100%;
+    --popover-foreground:   222 47% 11%;
+
+    --primary:              201 88% 42%;   /* #0C8ECA azure-blue — logo accent */
+    --primary-foreground:   0 0% 100%;
+
+    --secondary:            220 20% 94%;
+    --secondary-foreground: 222 40% 20%;
+
+    --muted:                220 20% 95%;
+    --muted-foreground:     215 16% 47%;   /* slate-500 */
+
+    --accent:               201 60% 96%;   /* faint azure hover/active surface */
+    --accent-foreground:    201 88% 25%;
+
+    --destructive:          350 80% 55%;
+    --destructive-foreground: 0 0% 100%;
+
+    --success:              201 88% 42%;    /* #0C8ECA azure-blue — present / approved */
+    --success-foreground:   0 0% 100%;
+
+    --warning:              32 94% 44%;     /* amber-600 */
+    --warning-foreground:   0 0% 100%;
+
+    --warn-strong:          22 92% 45%;     /* orange-600/700 — escalating warning (e.g. low leave balance); darkened for small-text contrast on white */
+    --warn-strong-foreground: 0 0% 100%;
+
+    --brand:                201 88% 42%;   /* #0C8ECA azure-blue */
+    --brand-foreground:     0 0% 100%;
+
+    --border:               220 20% 90%;
+    --input:                220 20% 88%;
+    --ring:                 201 88% 42%;
+
+    --sidebar:              0 0% 100%;
+    --sidebar-foreground:   222 30% 28%;
+
+    --surface:             0 0% 100%;
+    --surface-2:           220 24% 97%;
+
+    /* Daylight surfaces — clean white cards + soft shadow (no frosted glass). */
+    --glass-bg:            0 0% 100%;
+    --glass-strong-bg:     0 0% 100%;
+    --glass-border:        220 20% 90%;
+    --glass-highlight:     hsla(0, 0%, 100%, 0.9);
+    --glass-shadow:        0 1px 2px rgb(16 24 40 / 0.04), 0 14px 32px -16px rgb(16 24 40 / 0.14);
+
+    color-scheme: light;
+  }
+}
+
+@layer base {
+  * { @apply border-border; }
+
+  body {
+    font-family: var(--font-sans), ui-sans-serif, system-ui, sans-serif;
+    background-color: hsl(var(--background));
+    color: hsl(var(--foreground));
+    min-height: 100dvh;
+    -webkit-font-smoothing: antialiased;
+    transition: background-color 0.25s ease, color 0.25s ease;
+  }
+
+  /* Ambient tint — a whisper of brand colour at the corners. Very subtle on light. */
+  body::before {
+    content: "";
+    position: fixed;
+    inset: 0;
+    pointer-events: none;
+    z-index: -1;
+    background:
+      radial-gradient(52rem 36rem at 92% -12%, hsl(var(--primary) / 0.06), transparent 60%),
+      radial-gradient(44rem 32rem at -10% 2%, hsl(var(--brand) / 0.05), transparent 58%);
+  }
+
+  h1, h2, h3, h4, h5 { font-weight: 600; letter-spacing: -0.01em; }
+}
+
+/* ════════════════════════════════════════════════════════════════════════════
+   Utilities
+   ════════════════════════════════════════════════════════════════════════════ */
+@layer utilities {
+  /* Page background helper (kept for compatibility with the app shell). */
+  .app-bg { background-color: hsl(var(--background)); }
+
+  /* ── Surfaces (Daylight) ──
+     Clean solid cards: solid surface + hairline border + soft shadow. No blur —
+     the airy light aesthetic relies on elevation, not frosted glass. Used by
+     <Card>, the shell, and any .glass element. */
+  .glass {
+    background-color: hsl(var(--glass-bg));
+    border: 1px solid hsl(var(--glass-border));
+    box-shadow: 0 1px 2px rgb(16 24 40 / 0.04), 0 6px 16px -10px rgb(16 24 40 / 0.10);
+  }
+  .glass-strong {
+    background-color: hsl(var(--glass-strong-bg));
+    border: 1px solid hsl(var(--glass-border));
+    box-shadow: var(--glass-shadow);
+  }
+
+  /* Soft elevation in place of the old glow effects. */
+  .glow-primary { box-shadow: 0 1px 2px rgb(0 0 0 / 0.05), 0 10px 30px -16px hsl(var(--primary) / 0.35); }
+  .glow-success { box-shadow: 0 1px 2px rgb(0 0 0 / 0.05), 0 10px 30px -16px hsl(var(--success) / 0.30); }
+  .glow-danger  { box-shadow: 0 1px 2px rgb(0 0 0 / 0.05), 0 10px 30px -16px hsl(var(--destructive) / 0.30); }
+  .elevate      { box-shadow: 0 1px 2px rgb(0 0 0 / 0.06), 0 6px 16px -10px rgb(0 0 0 / 0.20); }
+
+  /* Brand text colour — replaces the old "childish" gradient text with a clean,
+     solid brand colour (class kept so existing usages upgrade automatically). */
+  .text-gradient { color: hsl(var(--primary)); }
+  .text-brand    { color: hsl(var(--brand)); }
+
+  .scrollbar-none::-webkit-scrollbar { display: none; }
+  .scrollbar-none { -ms-overflow-style: none; scrollbar-width: none; }
+
+  /* Skeleton loading placeholder — theme-aware base + moving shimmer highlight. */
+  .skeleton {
+    position: relative;
+    overflow: hidden;
+    background-color: hsl(var(--foreground) / 0.07);
+    border-radius: var(--radius);
+  }
+  .skeleton::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    transform: translateX(-100%);
+    background: linear-gradient(90deg, transparent, hsl(var(--foreground) / 0.08), transparent);
+    animation: skeleton-shimmer 1.6s ease-in-out infinite;
+  }
+  @keyframes skeleton-shimmer { 100% { transform: translateX(100%); } }
+  @media (prefers-reduced-motion: reduce) { .skeleton::after { animation: none; } }
+
+  /* Thin themed scrollbar */
+  .scrollbar-thin::-webkit-scrollbar { width: 6px; height: 6px; }
+  .scrollbar-thin::-webkit-scrollbar-track { background: transparent; }
+  .scrollbar-thin::-webkit-scrollbar-thumb {
+    background: hsl(var(--muted-foreground) / 0.30); border-radius: 9999px;
+  }
+  .scrollbar-thin::-webkit-scrollbar-thumb:hover { background: hsl(var(--muted-foreground) / 0.50); }
+  .scrollbar-thin { scrollbar-width: thin; scrollbar-color: hsl(var(--muted-foreground) / 0.30) transparent; }
+}
+
+/* ─── Global app scrollbar (themed) ─────────────────────────────────────────── */
+* { scrollbar-width: thin; scrollbar-color: hsl(var(--muted-foreground) / 0.28) transparent; }
+*::-webkit-scrollbar { width: 8px; height: 8px; }
+*::-webkit-scrollbar-track { background: transparent; }
+*::-webkit-scrollbar-thumb {
+  background: hsl(var(--muted-foreground) / 0.25);
+  border-radius: 9999px;
+  border: 2px solid transparent;
+  background-clip: padding-box;
+}
+*::-webkit-scrollbar-thumb:hover { background: hsl(var(--muted-foreground) / 0.45); background-clip: padding-box; }
+
+/* ════════════════════════════════════════════════════════════════════════════
+   Legacy raw-Tailwind compatibility (light mode)
+   The app historically used raw text-white / bg-white/x / slate utilities. These
+   keep any not-yet-migrated markup legible in light mode. New code should use
+   semantic tokens (text-foreground, bg-card, …) instead.
+   ════════════════════════════════════════════════════════════════════════════ */
+@layer base {
+  .light .text-white     { color: hsl(222 47% 12%) !important; }
+  .light .text-slate-200 { color: hsl(222 25% 22%) !important; }
+  .light .text-slate-300 { color: hsl(222 20% 30%) !important; }
+  .light .text-slate-400 { color: hsl(222 14% 42%) !important; }
+  .light .text-slate-500 { color: hsl(222 10% 50%) !important; }
+  .light .text-slate-600 { color: hsl(222 10% 58%) !important; }
+
+  .light .bg-white\/3   { background-color: rgb(2 6 23 / 0.02) !important; }
+  .light .bg-white\/5   { background-color: rgb(2 6 23 / 0.04) !important; }
+  .light .bg-white\/10  { background-color: rgb(2 6 23 / 0.06) !important; }
+  .light .border-white\/5  { border-color: rgb(2 6 23 / 0.06) !important; }
+  .light .border-white\/10 { border-color: rgb(2 6 23 / 0.09) !important; }
+  .light .border-white\/20 { border-color: rgb(2 6 23 / 0.12) !important; }
+
+  .light .bg-slate-900\/90 { background-color: rgb(255 255 255 / 0.95) !important; }
+  .light .bg-slate-900\/95 { background-color: rgb(255 255 255 / 0.97) !important; }
+  .light .bg-slate-800 { background-color: hsl(214 32% 90%) !important; }
+  .light .bg-slate-700 { background-color: hsl(214 25% 84%) !important; }
+}
+
+/* ─── Swipe button ─────────────────────────────────────────────────────────── */
+.swipe-container { position: relative; height: 56px; border-radius: 28px; overflow: hidden; cursor: pointer; }
+.swipe-track-checkin {
+  background: linear-gradient(90deg, hsl(var(--primary) / 0.16), hsl(var(--primary) / 0.05));
+  border: 1px solid hsl(var(--primary) / 0.30);
+}
+.swipe-track-checkout {
+  background: linear-gradient(90deg, hsl(var(--destructive) / 0.16), hsl(var(--destructive) / 0.05));
+  border: 1px solid hsl(var(--destructive) / 0.30);
+}
+.swipe-thumb {
+  position: absolute; top: 4px; left: 4px;
+  width: 48px; height: 48px; border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  cursor: grab; user-select: none; touch-action: none;
+}
+.swipe-thumb:active { cursor: grabbing; }
+
+/* ─── Calendar (react-day-picker) ──────────────────────────────────────────── */
+.rdp {
+  --rdp-cell-size: 36px !important;
+  --rdp-accent-color: hsl(var(--primary)) !important;
+  --rdp-background-color: hsl(var(--primary) / 0.15) !important;
+  margin: 0 !important;
+  color: hsl(var(--foreground)) !important;
+  width: 100% !important;
+}
+.rdp-months { width: 100% !important; }
+.rdp-month  { width: 100% !important; }
+.rdp-table  { width: 100% !important; max-width: 100% !important; table-layout: fixed !important; }
+.rdp-day    { margin: 0 auto !important; }
+.rdp-cell   { text-align: center !important; padding-top: 5px !important; padding-bottom: 5px !important; }
+.rdp-day_selected, .rdp-day_selected:hover {
+  background-color: hsl(var(--primary)) !important;
+  color: hsl(var(--primary-foreground)) !important;
+}
+.rdp-button:hover:not([disabled]) { background-color: hsl(var(--primary) / 0.15) !important; }
+.rdp-head_cell { color: hsl(var(--muted-foreground)) !important; font-weight: 500; text-align: center !important; }
+.rdp-caption_label { color: hsl(var(--foreground)) !important; font-weight: 600; }
+.rdp-nav_button { color: hsl(var(--muted-foreground)) !important; }
+.rdp-day_today:not(.rdp-day_selected) {
+  border: 1px solid hsl(var(--primary) / 0.5) !important;
+  color: hsl(var(--primary)) !important;
+}
+
+/* ─── Attention blink (new-feature nudge) ───────────────────────────────────────
+   A pulsing primary-coloured ring — used on the (new) "Update location" button until
+   the user first uses it. Subtle glow that draws the eye without the jarring full-opacity
+   flash of a naive blink. */
+@keyframes attnBlink {
+  0%, 100% { box-shadow: 0 0 0 0 hsl(var(--primary) / 0.45); }
+  70%      { box-shadow: 0 0 0 6px hsl(var(--primary) / 0); }
+}
+.animate-attn-blink { animation: attnBlink 1.5s cubic-bezier(0.4, 0, 0.2, 1) infinite; }
+@media (prefers-reduced-motion: reduce) { .animate-attn-blink { animation: none; } }
+
+/* ─── Leaflet maps ──────────────────────────────────────────────────────────────
+   Leaflet gives its panes and zoom/attribution controls very high z-indexes (up to
+   1000), set on elements INSIDE the map container. Without a stacking context on the
+   container itself those high z-indexes escape and paint ABOVE app modals/overlays —
+   e.g. a check-in mini-map poking through the "What's New" dialog backdrop. `isolation:
+   isolate` gives the map its own stacking context (containing those z-indexes beneath any
+   fixed overlay) WITHOUT setting `position` — important because some maps (the Overview
+   Sri Lanka map) size their container with `position: absolute; inset: 0`, which a
+   `position: relative` here would override and collapse to zero height. */
+.leaflet-container {
+  isolation: isolate;
+}
+
+/* ─── Toast surface ─────────────────────────────────────────────────────────────
+   The toast card MUST be fully opaque — it floats over live page content. Applied to
+   AppToaster's ToastShell. Each property is declared twice: a plain hex first (parsed
+   by every browser, incl. older Android WebView / Samsung Internet / iOS that reject
+   the modern space-separated `hsl(var(--x))` syntax), then the token-driven version
+   which modern browsers use. On engines where `hsl(var(--x))` is invalid, that second
+   line is dropped and the opaque hex remains — so the background is NEVER see-through.
+   Fixes the "can't see the toast background on some devices" bug (content bleeding
+   through the "Slow network" banner). */
+.light .app-toast-surface {
+  background-color: #ffffff; background-color: hsl(var(--popover));
+  border-color: #dbe2eb;     border-color: hsl(var(--border));
+  color: #0f1a2e;            color: hsl(var(--popover-foreground));
+}
+.dark .app-toast-surface {
+  background-color: #171b26; background-color: hsl(var(--popover));
+  border-color: #272c35;     border-color: hsl(var(--border));
+  color: #f2f5f8;            color: hsl(var(--popover-foreground));
+}
+
+/* V2 branded toast (AppToaster) — entrance / exit driven by react-hot-toast's
+   `t.visible`. Toasts dock at the top, so they drop in and lift away. */
+@keyframes toast-in {
+  from { opacity: 0; transform: translate3d(0, -14px, 0) scale(0.96); }
+  to   { opacity: 1; transform: translate3d(0, 0, 0) scale(1); }
+}
+@keyframes toast-out {
+  from { opacity: 1; transform: translate3d(0, 0, 0) scale(1); }
+  to   { opacity: 0; transform: translate3d(0, -10px, 0) scale(0.96); }
+}
+.toast-enter { animation: toast-in 0.32s cubic-bezier(0.22, 1, 0.36, 1) both; }
+.toast-leave { animation: toast-out 0.2s cubic-bezier(0.4, 0, 1, 1) both; }
+@media (prefers-reduced-motion: reduce) {
+  .toast-enter { animation: none; }
+  .toast-leave { animation: none; opacity: 0; }
+}
+
+/* ─── iOS PWA safe-area helpers ────────────────────────────────────────────── */
+.safe-top-spacer    { display: block; flex-shrink: 0; height: env(safe-area-inset-top, 0px); }
+.safe-bottom-spacer { display: block; flex-shrink: 0; height: env(safe-area-inset-bottom, 0px); }
+.pb-safe-banner     { padding-bottom: calc(env(safe-area-inset-bottom, 0px) + 0.75rem); }
+
+/* ─── Native date / time inputs (iOS Safari) ──────────────────────────────────
+   iOS centres the displayed value inside a full-width <input type="date|time">
+   via ::-webkit-date-and-time-value, so the value floats in the MIDDLE of the box
+   while every other field is left-aligned — looks misaligned on iPhone (e.g. the
+   Check-in / Check-out times in the attendance edit modal). Pin the value flush
+   left (and clear iOS's default inner spacing) so these read consistently with the
+   rest of the form. Desktop Chrome/Firefox are unaffected. */
+input[type="date"]::-webkit-date-and-time-value,
+input[type="time"]::-webkit-date-and-time-value,
+input[type="datetime-local"]::-webkit-date-and-time-value {
+  text-align: left;
+  margin: 0;
+}
+input[type="date"]::-webkit-datetime-edit,
+input[type="time"]::-webkit-datetime-edit,
+input[type="datetime-local"]::-webkit-datetime-edit {
+  padding: 0;
+  text-align: left;
+}
+
+/* The picker icon itself: pinned flush to the field's trailing edge (auto margin eats any
+   leftover space instead of it drifting with the value's width) and an explicit pointer
+   cursor, so this can't be left to whatever a browser's default happens to be. */
+input[type="date"]::-webkit-calendar-picker-indicator,
+input[type="time"]::-webkit-calendar-picker-indicator,
+input[type="datetime-local"]::-webkit-calendar-picker-indicator {
+  margin-left: auto;
+  cursor: pointer;
+}
+
+/* ─── React Flow — Roles hierarchy graph (theme-aware) ─────────────────────── */
+.react-flow__edge .react-flow__edge-path { stroke: hsl(var(--primary)); stroke-width: 2.5; }
+.react-flow__edge:hover .react-flow__edge-path,
+.react-flow__edge.selected .react-flow__edge-path { stroke: hsl(var(--warning)) !important; stroke-width: 3.5 !important; }
+.react-flow .react-flow__handle {
+  width: 11px; height: 11px; border: 2px solid hsl(var(--card));
+  transition: transform .12s ease, box-shadow .12s ease;
+}
+.react-flow .react-flow__handle:hover { transform: scale(1.45); box-shadow: 0 0 0 4px hsl(var(--primary) / 0.30); }
+.react-flow__handle.react-flow__handle-top    { background: hsl(var(--primary)); }
+.react-flow__handle.react-flow__handle-bottom { background: hsl(var(--success)); }
+.react-flow__connection-path { stroke: hsl(var(--warning)) !important; stroke-width: 2.5; }
+.react-flow__controls { box-shadow: 0 4px 20px rgb(0 0 0 / 0.25); border-radius: 0.6rem; overflow: hidden; }
+.react-flow__controls-button {
+  background: hsl(var(--card)) !important;
+  border-bottom: 1px solid hsl(var(--border)) !important;
+  color: hsl(var(--foreground)) !important;
+}
+.react-flow__controls-button:hover { background: hsl(var(--accent)) !important; }
+.react-flow__controls-button svg { fill: hsl(var(--foreground)); }
+.react-flow__minimap { background: hsl(var(--card)) !important; border: 1px solid hsl(var(--border)); border-radius: 0.6rem; }
+.react-flow__attribution { background: transparent !important; }
+.react-flow__attribution a { color: hsl(var(--muted-foreground)); }
+
+/* ── Theme switch (View Transitions API) ──
+   Disable the default cross-fade so only our circular clip-path reveal plays. */
+::view-transition-old(root),
+::view-transition-new(root) {
+  animation: none;
+  mix-blend-mode: normal;
+}
+
+/* ─── WeekStrip Liquid Fill Animations ──────────────────────────────────────── */
+/* Gentle "breathing" of the liquid level. origin-bottom (set on the element) keeps the
+   bottom edge pinned, so there is never a gap below the fill — only the surface moves. */
+@keyframes wave-flow {
+  0%, 100% { transform: scaleY(1); }
+  50%      { transform: scaleY(1.05); }
+}
+@keyframes liquid-shimmer {
+  0% { transform: translateX(-150%); }
+  50% { transform: translateX(150%); }
+  100% { transform: translateX(150%); }
+}
+/* Scroll a 200%-wide wave layer by exactly one half (one full pattern) → seamless loop,
+   so the liquid surface looks like it is continuously rippling. */
+@keyframes wave-x {
+  from { transform: translateX(0); }
+  to   { transform: translateX(-50%); }
+}
+.animate-liquid-wave {
+  animation: wave-flow 3s ease-in-out infinite;
+}
+.animate-liquid-shimmer {
+  animation: liquid-shimmer 2.5s ease-in-out infinite;
+}
+.animate-wave-x      { animation: wave-x 2s   linear infinite; }
+.animate-wave-x-slow { animation: wave-x 3.4s linear infinite reverse; }
+@media (prefers-reduced-motion: reduce) {
+  .animate-liquid-wave,
+  .animate-wave-x,
+  .animate-wave-x-slow { animation: none; }
+  .animate-liquid-shimmer { display: none; }
+}
+

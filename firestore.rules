@@ -1,0 +1,839 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Helper functions
+    function isAuth() {
+      return request.auth != null;
+    }
+
+    // ── Capability posture ── READ THIS BEFORE CHANGING ─────────────────
+    // Capabilities come from Firebase Auth CUSTOM CLAIMS, minted server-side by
+    // src/lib/authClaims.ts (via POST /api/auth/claims, which AuthProvider calls once per
+    // session start, immediately before it force-refreshes the token).
+    //
+    // HISTORY, so nobody re-introduces this: these helpers used to be stubbed to `isAuth()`
+    // because the rules referenced claims that nothing ever minted, and the honest fix at
+    // the time was to unbreak the app rather than hard-deny every user. The cost was total:
+    // `isSystemAdmin()` and `canManageUsers()` were true for every signed-in employee, so
+    // `roles` and `users` were writable by anyone with a login — and verifyAdminCaller /
+    // verifyPayrollCaller decide who is an admin by READING those two collections, so any
+    // employee could set is_system_admin on their own role from the browser console and walk
+    // straight into /api/admin/*. Capability gating was, in effect, cosmetic.
+    //
+    // The claim set is a deliberate SUBSET of RoleCapabilities (custom claims cap at 1000
+    // bytes) — CLAIMED_CAPABILITIES in src/lib/authClaims.ts is the list, and it must stay in
+    // lockstep with the `claims().*` references in this file. `epf_number` and `role` ride
+    // along for the owner branches ("this row is mine"), which stay dead without them.
+    //
+    // Only TRUE flags are minted, so an absent claim reads as false — every test here is
+    // `== true` for exactly that reason. Never write `!= false`.
+    //
+    // DEPLOY THE APP BEFORE THESE RULES. A session that has not yet passed through
+    // AuthProvider carries a token with no capability claims, and these rules deny it.
+    function claims() { return request.auth.token; }
+    function isSystemAdmin() { return isAuth() && (claims().is_system_admin == true || claims().role == 'System Admin'); }
+    function canManageUsers() { return isSystemAdmin() || (isAuth() && claims().can_manage_users == true); }
+    function canManageLeaves() { return isSystemAdmin() || (isAuth() && claims().can_manage_leaves == true); }
+    function canManageShifts() { return isSystemAdmin() || (isAuth() && claims().can_manage_shifts == true); }
+    function canManageSchedules() { return isSystemAdmin() || (isAuth() && (claims().can_manage_working_schedules == true || claims().can_manage_shifts == true)); }
+    function canApprove() { return isSystemAdmin() || (isAuth() && claims().can_approve == true); }
+    // Payroll (financial data, Southern Lanka tenant only). Named separately from the
+    // helpers above so each payroll step is enforced on its own capability rather than on a
+    // blanket admin check — maker/checker/lock separation is the whole point of splitting
+    // generate / review / finalize.
+    function canViewPayroll() { return isSystemAdmin() || (isAuth() && claims().can_view_payroll == true); }
+    function canManagePayrollConfig() { return isSystemAdmin() || (isAuth() && claims().can_manage_payroll_config == true); }
+    function canManagePayProfiles() { return isSystemAdmin() || (isAuth() && claims().can_manage_pay_profiles == true); }
+    function canGeneratePayroll() { return isSystemAdmin() || (isAuth() && claims().can_generate_payroll == true); }
+    function canReviewPayroll() { return isSystemAdmin() || (isAuth() && claims().can_review_payroll == true); }
+    function canFinalizePayroll() { return isSystemAdmin() || (isAuth() && claims().can_finalize_payroll == true); }
+
+    // Legacy aliases kept for existing rule references.
+    function isAdmin() { return isSystemAdmin(); }
+    function isHR()    { return canManageLeaves(); }
+
+    // ── Planned-maintenance write freeze ─────────────────────────────────
+    // underMaintenance(): true iff settings/maintenance is armed AND the request falls inside
+    // its window (start inclusive, end exclusive — mirrors src/lib/maintenance.ts). exists()
+    // is checked FIRST so the get() calls short-circuit away entirely (never evaluated) when
+    // the doc has never been created — an app with maintenance mode never armed must never be
+    // affected by this function, not even by one extra read.
+    //
+    // canWrite(): admins always pass; everyone else is blocked only while underMaintenance().
+    // NOTE: like isAdmin() above, this piggybacks on isSystemAdmin(), which is now a real
+    // claim check — so the write freeze is genuinely enforced server-side for everyone except
+    // System Admins, not just drawn as an overlay.
+    //
+    // Reads are DELIBERATELY left ungated by maintenance mode. A rules get() bills one document
+    // read per evaluated request — gating every read in this file behind an extra
+    // get(settings/maintenance) would add a permanent read-amplification tax to the entire app,
+    // forever, for a feature that only needs to block WRITES server-side. Lockdown-mode
+    // "can't view data" is enforced at the UI layer (the blocking overlay) only.
+    function underMaintenance() {
+      return exists(/databases/$(database)/documents/settings/maintenance) &&
+        get(/databases/$(database)/documents/settings/maintenance).data.enabled == true &&
+        get(/databases/$(database)/documents/settings/maintenance).data.startAtMs <= request.time.toMillis() &&
+        request.time.toMillis() < get(/databases/$(database)/documents/settings/maintenance).data.endAtMs;
+    }
+    function canWrite() {
+      return isAdmin() || !underMaintenance();
+    }
+
+    // ─── Roles (data-driven role registry) ────────────────────────────────
+    match /roles/{roleId} {
+      allow read:  if isAuth();
+      allow write: if isSystemAdmin() && canWrite();
+    }
+
+    // ─── Planned maintenance mode (single doc) ────────────────────────────
+    // Armed/edited from the console-command control popup (src/components/maintenance/). Reads
+    // stay open to any authenticated user — the client needs to see the countdown/overlay
+    // before it can prove admin-ness. See the canWrite() posture note above.
+    match /settings/maintenance {
+      allow read:  if isAuth();
+      allow write: if isAdmin() && canWrite();
+    }
+
+    // Automatic greetings (birthday / anniversary / special days). The settings doc is read
+    // by the System Settings page and by the daily cron; it is written ONLY through the
+    // admin-verified /api/admin/greetings/settings route, because these rules cannot tell an
+    // admin from anyone else (no custom claims).
+    match /settings/greetings {
+      allow read:  if isAuth();
+      allow write: if false;
+    }
+    // Once-per-year delivery markers claimed by the cron job with the Admin SDK.
+    match /greetings_sent/{markerId} {
+      allow read, write: if false;
+    }
+    match /birthday_sent/{markerId} {
+      allow read, write: if false;
+    }
+    // Personal greeting messages — the notes managers write for the people under them.
+    // Readable so a client can show its author their own list; written ONLY through
+    // /api/greetings/messages, because authorship depends on the supervisor tree and every
+    // can*() helper in this file reduces to isAuth(). Client-writable would mean any signed-in
+    // employee could publish a greeting signed "from the CEO" to the whole company.
+    match /greeting_messages/{msgId} {
+      allow read:  if isAuth();
+      allow write: if false;
+    }
+
+    // ─── Users ────────────────────────────────────────────────────────────
+    match /users/{epf} {
+      // Read: any authenticated user can read user profiles (needed for supervisor search)
+      allow read: if isAuth();
+      // Create: user managers
+      allow create: if canManageUsers() && canWrite();
+      // Update: own profile (limited fields) OR a user manager
+      allow update: if isAuth() && (
+        canManageUsers() ||
+        (request.auth.uid == resource.data.uid &&
+          request.resource.data.diff(resource.data).affectedKeys()
+            .hasOnly(['first_name','last_name','phone_personal','address','avatar_url','fcm_token','fcm_tokens','updated_at','display_name','name_tokens','notif_cleared_at']))
+      ) && canWrite();
+      allow delete: if canManageUsers() && canWrite();
+    }
+
+    // ─── Companies ────────────────────────────────────────────────────────
+    match /companies/{companyId} {
+      allow read:   if isAuth();
+      allow write:  if canManageUsers() && canWrite();
+    }
+
+    // ─── Departments (Southern Lanka tenant only — see the isSouthernlanka gate on
+    // src/app/(pages)/departments/page.tsx). Had NO match block, so every read/write
+    // was denied by default — the same fallthrough bug documented on leave_delete_requests
+    // and suspense_close_requests above.
+    match /departments/{deptId} {
+      allow read:   if isAuth();
+      allow write:  if canManageUsers();
+    }
+
+    // ─── Shift Definitions (Southern Lanka tenant only — see the tenant branch on
+    // src/app/(pages)/shifts/page.tsx, which renders SouthernlankaShifts instead of the
+    // roster-assignment page below for that tenant). Department-scoped reusable shift
+    // definitions (name + department + time window) — no roster, no per-employee membership. ─
+    match /shift_definitions/{shiftDefId} {
+      allow read:   if isAuth();
+      allow write:  if canManageUsers();
+    }
+
+    // ─── Work Patterns (which weekdays are worked, and for how many hours) ─
+    // One document per configured week shape, resolved role -> location -> company -> a
+    // built-in default (src/lib/workPatterns.ts). EVERY signed-in user reads these: the
+    // attendance calendar cannot draw a single day's gauge without knowing what that day was
+    // expected to produce, so a read gate narrower than isAuth() would blank the calendar for
+    // ordinary staff rather than protect anything — the shape of a company's week is not a
+    // secret from the people working it.
+    //
+    // Writes are scheduling administration, so they sit with canManageSchedules() rather than
+    // canManageUsers(): a company-scoped pattern silently re-states the gauge, the "short day"
+    // flag and the month summary for everyone it covers at once, which is the same blast
+    // radius as editing a roster.
+    //
+    // Rows are never deleted in normal use — `is_active: false` retires a pattern while
+    // leaving history resolvable, since a report for last March must still use the pattern
+    // that applied in March.
+    match /work_patterns/{patternId} {
+      allow read:   if isAuth();
+      allow write:  if canManageSchedules() && canWrite();
+    }
+
+    // ─── Holiday / rest-day work premiums ─────────────────────────────────
+    // What working a public holiday, Poya day, company holiday, rest day or approved leave day
+    // is worth (src/lib/holidayWorkPolicy.ts). Readable by any signed-in user because an
+    // approver has to be told the rate they are approving; writable only by payroll config
+    // managers, since these rows price real money.
+    //
+    // Reading these does NOT mean a premium is paid: the resolver returns 1x unless the tenant
+    // has holidayPayMultipliers on, and the tenant flag is not something Firestore can see.
+    match /holiday_work_policies/{policyId} {
+      allow read:   if isAuth();
+      allow write:  if canManagePayrollConfig() && canWrite();
+    }
+
+    // ─── Schedule Assignments (Southern Lanka tenant only — one shift assigned to one
+    // employee on one date, from the Google-Calendar-style grid on
+    // src/app/(pages)/schedule/page.tsx). Replaces the old rosters/shift_staff/
+    // roster_schedules/roster_schedule_overrides collections, which this app no longer
+    // reads or writes. Had NO match block, so every read/write was denied by default until
+    // this was added — the same fallthrough bug documented on departments above.
+    match /schedule_assignments/{assignmentId} {
+      allow read:   if isAuth();
+      allow write:  if canManageUsers();
+    }
+
+    // ─── Day Offs (declared employee non-working days, Southern Lanka) ─────
+    // Overlaid on the Schedule grid alongside holidays/leave. Any authenticated user reads
+    // (the grid needs it); writes come from the Schedule page's Import / declare / remove,
+    // gated CLIENT-SIDE by can_declare_day_offs or the HOD-with-departments fallback (see
+    // the capability posture note at the top — server enforcement is isAuth()-only for now).
+    match /day_offs/{dayOffId} {
+      allow read:   if isAuth();
+      allow write:  if canManageSchedules() && canWrite();
+    }
+
+    // ─── Schedule Patterns (weekly recurring shift, Southern Lanka) ───────
+    // One employee's "work shift X every <weekdays>" — the recurring-roster source that the
+    // materialise engine expands into schedule_assignments docs (see src/lib/types.ts
+    // SchedulePattern + src/lib/schedulePattern.ts). Client CRUD is gated the same as
+    // day_offs; the weekly extend job runs server-side with the Admin SDK and bypasses
+    // these rules. Default-deny would silently block every read/write without this block —
+    // the same fallthrough bug documented on schedule_assignments above.
+    match /schedule_patterns/{patternId} {
+      allow read:   if isAuth();
+      allow write:  if canManageSchedules() && canWrite();
+    }
+
+    // ─── Shift Assignments (overnight-shift roster) ───────────────────────
+    // Any authenticated user can read (attendance logic checks it); managers with the
+    // can_manage_shifts capability (Head Op Engineer and above) write.
+    match /shift_assignments/{shiftId} {
+      allow read:   if isAuth();
+      allow write:  if canManageShifts() && canWrite();
+    }
+
+    // ─── Outstation Locations ─────────────────────────────────────────────
+    match /outstation_locations/{locId} {
+      allow read:   if isAuth();
+      allow write:  if canManageUsers() && canWrite();
+    }
+
+    // ─── Working Places (canonical check-out list, optional GPS) ───────────
+    match /working_places/{placeId} {
+      allow read:   if isAuth();
+      allow write:  if canManageUsers() && canWrite();
+    }
+
+    // ─── Working Schedules (per-employee, per-day assigned working place) ───
+    // Any authenticated user can read (needed for an employee's own schedule lookup and
+    // the check-out outstation reference); only schedule managers can write.
+    match /working_schedules/{schedId} {
+      allow read:   if isAuth();
+      allow write:  if canManageSchedules() && canWrite();
+    }
+
+    // ─── Leave Types ──────────────────────────────────────────────────────
+    match /leave_types/{ltId} {
+      allow read:   if isAuth();
+      allow write:  if canManageLeaves() && canWrite();
+    }
+
+    // ─── Leave Balances ───────────────────────────────────────────────────
+    match /leave_balances/{balId} {
+      allow read:   if isAuth();
+      allow write:  if canManageLeaves() && canWrite();
+    }
+
+    // ─── Holiday Settings (org-wide accepted public-holiday list, per year) ─
+    // One doc per year (id = year). Any authenticated user reads it (the reports use it
+    // to exclude accepted holidays from absent-day counts); leave/user managers curate it.
+    match /holiday_settings/{year} {
+      allow read:   if isAuth();
+      allow write:  if (canManageLeaves() || canManageUsers()) && canWrite();
+    }
+
+    // ─── Attendances ──────────────────────────────────────────────────────
+    match /attendances/{attId} {
+      // Any authenticated user can read attendance records
+      // (needed for approvers to see their team's records)
+      allow read: if isAuth();
+
+      // Create: own attendance only (epf embedded in doc ID)
+      allow create: if isAuth() &&
+        request.resource.data.epf_number != null && canWrite();
+
+      // Update: own record (check-out fields only) OR approver updating status
+      allow update: if isAuth() && (
+        isAdmin() ||
+        isHR() ||
+        canApprove() ||
+        resource.data.epf_number == claims().epf_number
+      ) && canWrite();
+
+      allow delete: if isAdmin() && canWrite();
+    }
+
+    // Monthly Late Arrival / Early Departure accumulation — computed client-side on the
+    // Attendance View page (see src/services/attendanceShortfallService.ts) and upserted as a
+    // stable per-employee/month snapshot. Same capability posture as the payroll collections
+    // below: real enforcement is the can_view_attendance app-level gate, not a claim here (see
+    // the capability-posture note at the top of this file).
+    match /attendance_shortfall_summary/{summaryId} {
+      allow read: if isAuth();
+      allow create, update: if isAuth();
+      allow delete: if false;
+    }
+
+    // ─── Attendance Edit Requests ─────────────────────────────────────────
+    match /attendance_edit_requests/{reqId} {
+      allow read:   if isAuth();
+      allow create: if isAuth() &&
+        request.resource.data.epf_number != null && canWrite();
+      // Approvers/admins consider requests; the requester may amend their OWN request
+      // while it is still pending (owner-write pattern, mirrors attendances/tasks).
+      allow update: if isAuth() && (
+        canApprove() || isAdmin() ||
+        (resource.data.epf_number == claims().epf_number &&
+         resource.data.status == 'pending')
+      ) && canWrite();
+      allow delete: if isAdmin() && canWrite();
+    }
+
+    // ─── Daily Tasks (workload log) ───────────────────────────────────────
+    match /tasks/{taskId} {
+      // Read: any authenticated user (supervisors/managers view their team's logs).
+      allow read: if isAuth();
+      // Create: own task only (epf embedded in the doc).
+      allow create: if isAuth() &&
+        request.resource.data.epf_number != null && canWrite();
+      // Update / delete: own task, OR an approver/admin (for carry-over & oversight).
+      allow update: if isAuth() && (
+        canApprove() || isAdmin() ||
+        resource.data.epf_number == claims().epf_number
+      ) && canWrite();
+      allow delete: if isAuth() && (
+        isAdmin() ||
+        resource.data.epf_number == claims().epf_number
+      ) && canWrite();
+    }
+
+    // ─── Assigned Tasks (shared, multi-assignee, commentable work items) ───
+    // Distinct from /tasks (a personal daily work-hours log) — one doc can be shared
+    // by several assignees, each tracked independently in the assignees[] array.
+    // Same permissive-but-authenticated posture as /tasks (capability claims aren't
+    // issued — see the posture note at the top of this file).
+    match /assigned_tasks/{taskId} {
+      allow read:   if isAuth();
+      allow create: if isAuth() && request.resource.data.assignee_epfs is list && canWrite();
+      allow update: if isAuth() && canWrite();
+      allow delete: if isAuth() && canWrite();
+
+      match /comments/{commentId} {
+        allow read:   if isAuth();
+        allow create: if isAuth() && request.resource.data.author_epf != null && canWrite();
+        allow update, delete: if isAuth() && canWrite();
+      }
+
+      // The task's trail — status changes with their notes, start/finish times, flags and
+      // reschedules (see AssignedTaskEvent in types.ts). Append-only: it is the record of
+      // what happened, so nothing rewrites it.
+      match /events/{eventId} {
+        allow read:   if isAuth();
+        allow create: if isAuth() && request.resource.data.by_epf != null && canWrite();
+        allow update, delete: if false;
+      }
+    }
+
+    // ─── Task Status Config (per-company shared list of custom Board statuses) ─
+    // One tiny doc per company (id = companyId): { company_id, statuses: string[] }.
+    // Lets anyone add a custom status (e.g. "In Review") that then shows as a real
+    // Board column for the whole company, not just a one-off string on one task.
+    match /task_status_config/{configId} {
+      allow read:  if isAuth();
+      allow write: if isAuth() && canWrite();
+    }
+
+    // ─── Scheduled Notifications (one-time, sent later by the dispatch cron) ─
+    // Composed by senders (can_send_notifications, enforced client-side like the rest of the
+    // app since capability claims aren't issued); read/cancel by any authed user in the admin
+    // UI. The cron runs via the Admin SDK and bypasses these rules to flip status → sent.
+    match /scheduled_notifications/{schedId} {
+      allow read:   if isAuth();
+      allow create: if isAuth() && request.resource.data.status == 'pending' && canWrite();
+      allow update: if isAuth() && canWrite();   // cancel (status → canceled)
+      allow delete: if isSystemAdmin() && canWrite();
+    }
+
+    // ─── Notifications (in-app inbox) ─────────────────────────────────────
+    // Docs are addressed to one user (to_epf) or an audience (approvers). Reads follow
+    // the app-wide posture (capability claims may not be issued — client-side gating is
+    // primary, same as attendances/leaves). Updates can only flip the `read` flag, so a
+    // notification's content is immutable once created.
+    match /notifications/{notifId} {
+      allow read:   if isAuth();
+      allow create: if isAuth() &&
+        (request.resource.data.to_epf != null || request.resource.data.audience != null) && canWrite();
+      allow update: if isAuth() &&
+        request.resource.data.diff(resource.data).affectedKeys().hasOnly(['read']) && canWrite();
+      allow delete: if isAdmin() && canWrite();
+    }
+
+    // ─── Leaves ───────────────────────────────────────────────────────────
+    match /leaves/{leaveId} {
+      allow read:   if isAuth();
+      // Create: any employee can apply
+      allow create: if isAuth() && canWrite();
+      // Update: own pending leave (to cancel/edit) OR approver
+      allow update: if isAuth() && (
+        canApprove() ||
+        (resource.data.epf_number == claims().epf_number &&
+         resource.data.status == 'pending')
+      ) && canWrite();
+      allow delete: if isAuth() && (
+        isAdmin() ||
+        (resource.data.epf_number == claims().epf_number &&
+         resource.data.status == 'pending')
+      ) && canWrite();
+    }
+
+    // ─── Leave Deletion Requests ──────────────────────────────────────────
+    // An employee asks for some/all dates of an approved leave to be removed; an approver
+    // considers it (apiCompat requestLeaveDeletion / considerLeaveDeletion). Mirrors
+    // attendance_edit_requests. This collection had NO match block, so every read and write
+    // was denied by default — the deny-by-default fallthrough, not a failed condition.
+    match /leave_delete_requests/{reqId} {
+      allow read:   if isAuth();
+      allow create: if isAuth() &&
+        request.resource.data.epf_number != null &&
+        request.resource.data.status == 'pending' && canWrite();
+      allow update: if isAuth() && (
+        canApprove() || isAdmin() ||
+        (resource.data.epf_number == claims().epf_number &&
+         resource.data.status == 'pending')
+      ) && canWrite();
+      allow delete: if isAdmin() && canWrite();
+    }
+
+    // ─── Suspense: accounts (staff expense float) ─────────────────────────
+    // Opened/adjusted by user managers and balance-updated by suspense approvers on
+    // approval. Same posture as the rest of the app: any authenticated user can read,
+    // writes are authed (who may write is enforced client-side by can_manage_users /
+    // can_approve_suspense, since capability custom claims aren't issued yet).
+    match /suspense_accounts/{epf} {
+      allow read:  if isAuth();
+      allow write: if isAuth() && canWrite();
+    }
+
+    // ─── Suspense: ledger (immutable audit trail) ─────────────────────────
+    // Append-only — entries are created by account/approval flows and can never be
+    // edited or deleted, so the balance history stays tamper-evident.
+    match /suspense_ledger/{entryId} {
+      allow read:   if isAuth();
+      allow create: if isAuth() && canWrite();
+      allow update, delete: if false;
+    }
+
+    // ─── Suspense: submissions (expenses) ─────────────────────────────────
+    match /suspense_submissions/{subId} {
+      allow read:   if isAuth();
+      allow create: if isAuth() && request.resource.data.epf_number != null && canWrite();
+      allow update: if isAuth() && canWrite();   // owner edits own pending; approver sets status
+      allow delete: if isAuth() && canWrite();
+    }
+
+    // ─── Suspense: vouchers (a rolling set of one employee's approved bills, any category) ──────
+    // Auto-created/extended by addApprovedBillToVoucher (suspenseService.ts) as bills are
+    // approved; settlement (QuickBooks reconciliation) is marked here, not on submissions.
+    match /suspense_vouchers/{voucherId} {
+      allow read:   if isAuth();
+      allow write:  if isAuth() && canWrite();
+    }
+
+    // ─── Suspense: voucher/bill numbering counters (one doc per fiscal year, per scheme) ────────
+    // Read+incremented transactionally by nextSequenceNo (suspenseService.ts) when a new voucher
+    // or bill is created — see fiscalYearKey for how the fiscal year (starting April) is computed.
+    match /suspense_voucher_counters/{fiscalYear} {
+      allow read:   if isAuth();
+      allow write:  if isAuth() && canWrite();
+    }
+    match /suspense_bill_counters/{fiscalYear} {
+      allow read:   if isAuth();
+      allow write:  if isAuth() && canWrite();
+    }
+
+    // ─── Suspense: bill-number audit trail ──────────────────────────────────────
+    // Why a bill carries the number it does — every create, edit, resubmit, cancel and renumber.
+    // Bill numbers are reused when a cancelled bill frees its slot (see deleteSubmission), so a
+    // number alone no longer identifies one bill for all time; this log is what reconstructs it.
+    // Append-only: an entry that could be edited or removed would defeat the point.
+    match /suspense_bill_events/{eventId} {
+      allow read:   if isAuth();
+      allow create: if isAuth() && canWrite();
+      allow update, delete: if false;
+    }
+
+    // ─── Suspense: module settings (e.g. voucher_mode — per-employee vs shared vouchers) ────────
+    // Read by addApprovedBillToVoucher/previewVoucherForApproval on every approval; written from
+    // System Settings (VoucherModeSettings.tsx / setVoucherMode in suspenseService.ts).
+    match /suspense_settings/{settingId} {
+      allow read:   if isAuth();
+      allow write:  if isAuth() && canWrite();
+    }
+
+    // ─── Suspense: credit requests (top-ups) ──────────────────────────────
+    match /suspense_requests/{reqId} {
+      allow read:   if isAuth();
+      allow create: if isAuth() && request.resource.data.epf_number != null && canWrite();
+      allow update: if isAuth() && canWrite();   // owner edits own pending; approver grants/rejects
+      allow delete: if isAuth() && canWrite();
+    }
+
+    // ─── Suspense: close/clear requests ────────────────────────────────────
+    match /suspense_close_requests/{closeId} {
+      allow read:   if isAuth();
+      allow create: if isAuth() && request.resource.data.epf_number != null && canWrite();
+      allow update: if isAuth() && canWrite();   // approver approves/rejects (client-gated by can_approve_suspense)
+      allow delete: if isAuth() && canWrite();
+    }
+
+    // ─── Suspense: close requests (clear & close an account) ──────────────
+    // An employee asks for their suspense account to be closed; an approver settles the
+    // balance and considers it (suspenseService CLOSES). Same posture as the other
+    // suspense_* collections. This had NO match block, so every read and write was denied
+    // by default — which surfaced as "Missing or insufficient permissions" on /suspense.
+    match /suspense_close_requests/{closeId} {
+      allow read:   if isAuth();
+      allow create: if isAuth() && request.resource.data.epf_number != null && canWrite();
+      allow update: if isAuth() && canWrite();   // owner cancels own pending; approver settles/rejects
+      allow delete: if isAuth() && canWrite();
+    }
+
+    // ─── Suspense: expense taxonomy (categories → subcategories) ──────────
+    // Non-secret config read by the submit form; written by suspense approvers via the
+    // Settings tab (client-gated by can_approve_suspense). Same isAuth() posture as above.
+    match /suspense_categories/{catId} {
+      allow read:   if isAuth();
+      allow write:  if isAuth() && canWrite();
+    }
+
+    // ─── Suspense: lunch requests (need-lunch flags feeding the food deduction) ──
+    // Written either by the employee themselves or by their chamary's responsible person
+    // (who can add/remove entries for their chamary) — both cases are just an authenticated
+    // write, client-gated in the UI (no custom-claims provider; same isAuth() posture as above).
+    match /lunch_requests/{reqId} {
+      allow read:   if isAuth();
+      // `multiplier` decides what this person is charged for the meal (the chamary's bills are
+      // divided by the sum of multipliers), so it is the one field on this document a client
+      // may not touch. Every can*() helper here reduces to isAuth(), so a writable multiplier
+      // would let any signed-in employee halve their own food bill or double a colleague's.
+      // It is set only through /api/food/meal-multiplier, which runs on the Admin SDK and so
+      // bypasses these rules after checking the caller runs this chamary or is an admin.
+      allow create: if isAuth() && canWrite()
+                    && !('multiplier' in request.resource.data);
+      allow update: if isAuth() && canWrite()
+                    && request.resource.data.get('multiplier', null)
+                       == resource.data.get('multiplier', null);
+      allow delete: if isAuth() && canWrite();
+    }
+
+    // ─── Suspense: chamary meal off-days ("not cooking <meal> on <date>") ───────
+    // Written by the chamary's responsible person to block bookings for a meal they aren't
+    // cooking. Same isAuth() posture as lunch_requests above — the responsible-person check is
+    // client-gated (a chamary's responsible_epf lives inside the working_places doc, which a
+    // rule here cannot reach without a get() per write).
+    match /chamary_meal_offdays/{offdayId} {
+      allow read:   if isAuth();
+      allow write:  if isAuth() && canWrite();
+    }
+
+    // Requests to change a past meal booking (see mealChangeService.ts). Read is open to any
+    // signed-in user: the employee reads their own, and the chamary's responsible person is set
+    // in Working Places rather than by capability, so there is no flag here to gate the queue on.
+    // Writes follow the same canWrite() rule as the bookings themselves — who may APPROVE one is
+    // enforced in the client, exactly as the responsible person's own list already is.
+    match /meal_change_requests/{changeId} {
+      allow read:   if isAuth();
+      allow write:  if isAuth() && canWrite();
+    }
+
+    // ─── App config (cloud storage) ───────────────────────────────────────
+    // `cloud_storage` holds the Azure client secret — SERVER-ONLY (the Admin SDK in the
+    // API routes bypasses these rules). Clients may read only the non-secret provider flag
+    // in `cloud_storage_public`; all writes go through the server (denied here).
+    match /app_config/{docId} {
+      allow read:  if isAuth() && docId == 'cloud_storage_public';
+      allow write: if false;
+    }
+
+    // ─── Seed / restore baselines (DB editor) ─────────────────────────────
+    // src/lib/seedFirestore.ts stores a full snapshot in `_seed_meta/{id}` with the bulk
+    // split across the `snapshot_chunks` subcollection, and the /database page lists and
+    // restores them. Subcollections are NOT covered by a parent match, hence {document=**}.
+    // This drives destructive restore/wipe, so it is admin-scoped: isSystemAdmin() is
+    // isAuth() under the current posture and tightens automatically once claims are minted.
+    // Read and write are split (rather than the old combined `allow read, write`) purely so
+    // canWrite() — which does an extra get() — is attached to the write side only; reads stay
+    // exactly as permissive as before.
+    match /_seed_meta/{metaId} {
+      allow read:  if isSystemAdmin();
+      allow write: if isSystemAdmin() && canWrite();
+      match /{document=**} {
+        allow read:  if isSystemAdmin();
+        allow write: if isSystemAdmin() && canWrite();
+      }
+    }
+
+    // ─── Server-side cache ────────────────────────────────────────────────
+    // `app_cache/solar_sites` is written by the Admin SDK in the API routes (which bypass
+    // these rules) and is never touched by a client — see src/lib/solarSitesCache.ts.
+    // Denied outright so a browser can neither read nor poison the shared cache.
+    match /app_cache/{docId} {
+      allow read, write: if false;
+    }
+
+    // ─── Fingerprint attendance (HF-X05 terminals) ─────────────────────────
+    // Owned entirely by src/app/api/fingerprint/* and src/app/api/admin/fingerprint-devices/*
+    // (Admin SDK, which bypasses these rules) — terminals authenticate with FINGERPRINT_API_KEY,
+    // not Firebase Auth, and never touch Firestore directly. Denied outright so no browser
+    // session can read/write device registrations, enrollment metadata, or the attendance-event
+    // idempotency ledger. See FINGERPRINT_ATTENDANCE_API.md.
+    match /attendance_devices/{deviceId} {
+      allow read, write: if false;
+    }
+    match /fingerprint_enrollments/{enrollmentId} {
+      allow read, write: if false;
+      match /templates/{templateRecordId} {
+        allow read, write: if false;
+      }
+    }
+    match /fingerprint_attendance_events/{attendanceEventId} {
+      allow read, write: if false;
+    }
+    // Per-employee last-punch instant (global duplicate-punch debounce) — written only by the
+    // Admin SDK (src/lib/fingerprintApi.ts). No client path reads it.
+    match /fingerprint_last_punch/{epfId} {
+      allow read, write: if false;
+    }
+
+    // ─── Attendance review workflow (hybrid model) ────────────────────────
+    // A flagged session's review row — raised by the fingerprint engine / the open-session
+    // monitor cron (Admin SDK, deterministic id), transitioned flagged → in_review → resolved
+    // from the web app. The raw attendance session is never mutated here. Same authenticated-
+    // posture as attendance_edit_requests (capability claims are not issued — gating is
+    // client-side). See src/services/attendanceReviewService.ts.
+    match /attendance_reviews/{reviewId} {
+      allow read:   if isAuth();
+      allow create: if isAuth() && request.resource.data.epf_number != null && canWrite();
+      allow update: if isAuth() && (canApprove() || isAdmin() ||
+        resource.data.epf_number == claims().epf_number) && canWrite();
+      allow delete: if isAdmin() && canWrite();
+    }
+    // Derived scheduled-vs-extra allocation of a raw session — rebuilt by the retro-recalc
+    // drain (Admin SDK). Read-only for the app; never client-written.
+    match /attendance_segments/{segmentId} {
+      allow read:  if isAuth();
+      allow write: if false;
+    }
+    // Enqueued when a roster row is back-dated / edited / removed, drained by the Admin SDK.
+    match /recalc_queue/{queueId} {
+      allow read:   if isAuth();
+      allow create: if isAuth() && request.resource.data.epf_number != null && canWrite();
+      allow update, delete: if false;
+    }
+
+    // ─── Payroll — flat, direct-input schema (Southern Lanka tenant only, enforced by
+    // that tenant's own database selection, not by these rules). No salary is CALCULATED
+    // by any client write path; payroll_results is the only collection where that could
+    // matter and it is Admin-SDK-only below.
+    // Everything below (except components) is designed around soft state (is_active /
+    // status flags) — the app never hard-deletes a settings/employee/loan/monthly-entry
+    // doc, so `allow delete: if false` costs nothing and closes off a raw client delete
+    // that `allow write` alone would otherwise still permit (write = create+update+delete).
+    match /payroll_settings/{companyId} {
+      allow read: if canViewPayroll();
+      allow create, update: if canManagePayrollConfig();
+      allow delete: if false;
+    }
+    // Components — TENANT-WIDE, not scoped under any one company's settings doc, so
+    // adding one from any company's Settings screen makes it available to every company.
+    // Hard-deletable — the calculation engine already treats a component id an employee/
+    // monthly-entry row still references as a resolvable-gracefully info warning (see
+    // payrollCalculationEngine.ts), not a failure, so this is safe.
+    match /payroll_components/{componentId} {
+      allow read: if canViewPayroll();
+      allow write: if canManagePayrollConfig();
+    }
+    match /payroll_employees/{epfDocId} {
+      allow read: if canViewPayroll();
+      allow create, update: if canManagePayProfiles();
+      allow delete: if false;
+    }
+    // Loan create/edit — balances are only ever decremented server-side by the finalize
+    // API route (Admin SDK), never by a client write; this rule still governs ordinary
+    // client edits (new loan, monthly_deduction_amount change, cancel). Cancelling a loan
+    // is a status flip (see cancelLoan() in payrollLoanService.ts), never a delete.
+    match /payroll_loans/{loanId} {
+      // canViewPayroll() is a payroll-ADMIN capability — an ordinary employee doesn't hold it,
+      // but MyPayrollRequests.tsx (/profile) reads THEIR OWN loans via getActiveLoansForEmployee,
+      // so the "own record" half is required too, same pattern as every other self-service
+      // collection in this file (resource.data.epf_number == claims().epf_number).
+      allow read: if canViewPayroll() || (isAuth() && resource.data.epf_number == claims().epf_number);
+      allow create, update: if canManagePayProfiles();
+      allow delete: if false;
+    }
+    // Salary advances — deliberately separate collection from payroll_loans (short-term,
+    // single-month, never a partial/multi-month deduction). Status only ever flips to
+    // 'recovered' server-side by the finalize API route; ordinary client edits (new advance,
+    // amount/date fix while pending, cancel) go through this rule. Cancelling is a status
+    // flip (see cancelSalaryAdvance() in payrollSalaryAdvanceService.ts), never a delete.
+    match /payroll_salary_advances/{advanceId} {
+      // Same "own record" addition as payroll_loans above — MyPayrollRequests.tsx (/profile)
+      // reads THEIR OWN advances via getSalaryAdvancesForEmployee.
+      allow read: if canViewPayroll() || (isAuth() && resource.data.epf_number == claims().epf_number);
+      allow create, update: if canManagePayProfiles();
+      allow delete: if false;
+    }
+    // Employee-raised salary-advance / loan REQUESTS (see payrollRequestService.ts). Created by
+    // the employee themselves from their profile, decided (status flip + linked record id) by
+    // whoever manages pay profiles, withdrawn (status flip) by the requester. Read is any
+    // signed-in user — the employee reads their own, the approver reads the queue — under the
+    // same isAuth()-only posture as every other payroll collection above. Never deleted.
+    match /payroll_requests/{requestId} {
+      allow read:   if isAuth();
+      allow create: if isAuth() && request.resource.data.epf_number != null && canWrite();
+      allow update: if isAuth() && canWrite();
+      allow delete: if false;
+    }
+    // Append-only audit trail — never edited or deleted through the client.
+    match /payroll_audit_logs/{logId} {
+      allow read:   if canViewPayroll();
+      allow create: if canManagePayrollConfig() || canManagePayProfiles() || canGeneratePayroll() || canReviewPayroll() || canFinalizePayroll();
+      allow update, delete: if false;
+    }
+
+    // A run may be created/updated by config managers or generators, but never advanced to
+    // 'reviewed'/'finalized' by a plain client write — only the review/finalize Admin-SDK API
+    // routes do that. This guard doesn't depend on claims() at all, so it's genuinely
+    // enforced today, not just documented (see the capability-posture note at the top).
+    match /payroll_runs/{runId} {
+      allow read: if canViewPayroll();
+      allow create, update: if (canManagePayrollConfig() || canGeneratePayroll())
+        && !(('status' in request.resource.data) && request.resource.data.status in ['reviewed', 'finalized']);
+      allow delete: if false;
+    }
+    // Bulk Sheet rows — direct monthly input, edited by generators. Rows are created by
+    // ensureMonthlyEntriesForRun and edited in place (one-off lines, OT hours, no-pay,
+    // lock) — never individually deleted by the app.
+    match /payroll_monthly_entries/{entryId} {
+      allow read: if canViewPayroll();
+      allow create, update: if canManagePayrollConfig() || canGeneratePayroll();
+      allow delete: if false;
+    }
+    // payroll_results is written ONLY by the generate/review/finalize Admin-SDK API routes
+    // (bypasses these rules). "My Payslips" reads through its own server route (resolves the
+    // caller's own epf_number from a verified ID token) rather than a direct client query
+    // here, because this app has never minted Auth custom claims — a client-side rule can't
+    // scope "only your own records" by epf_number, so this stays payroll-staff-only.
+    match /payroll_results/{resultId} {
+      allow read:  if canViewPayroll();
+      allow write: if false;
+    }
+
+    // ─── Overtime requests (Southern Lanka payroll) ──────────────────────────
+    // Employee files a pending request; an approver in the frozen approver_pool decides it;
+    // the "Sync Approved OT" step on the Monthly Run page stamps applied_to_run_id and the
+    // payroll_monthly_entries write next to it is already covered by canGeneratePayroll().
+    // Coarse like leaves — the app mints no capability claims, so who-can-approve is enforced
+    // client-side (can_approve_ot). See src/services/otRequestService.ts.
+    match /ot_requests/{reqId} {
+      allow read:   if isAuth();
+      allow create: if isAuth() && canWrite()
+                    && request.resource.data.status == 'pending'
+                    && request.resource.data.epf_number != null
+                    && request.resource.data.requested_hours > 0;
+      // Approver / payroll staff / admin — or the owner editing/cancelling while pending.
+      allow update: if isAuth() && canWrite() && (
+                      canApprove() || isAdmin() || canGeneratePayroll() ||
+                      (resource.data.epf_number == claims().epf_number
+                       && resource.data.status == 'pending')
+                    );
+      allow delete: if isAdmin() && canWrite();
+    }
+
+    // ─── Passkeys (WebAuthn) ──────────────────────────────────────────────
+    // Both collections are written ONLY by the Admin SDK, from the routes under
+    // /api/auth/passkey/* (see src/lib/webauthn.ts), and the browser is denied outright.
+    //
+    // This is not caution, it is the security model. A client that could READ
+    // webauthn_challenges could answer its own challenge, which is the one thing a challenge
+    // exists to prevent. A client that could WRITE webauthn_credentials could register a
+    // public key it holds the private half of against somebody else's `uid` and then sign in
+    // as them — a complete account takeover from a single document write. And the stored
+    // public keys and signature counters are of no use to a browser: the profile page reads
+    // its device list through /api/auth/passkey/list, which returns labels and dates only.
+    //
+    // Default-deny would already refuse all of this. The block is written out anyway so that
+    // the posture is a decision someone made rather than an omission someone might "fix".
+    match /webauthn_credentials/{credentialId} {
+      allow read, write: if false;
+    }
+    match /webauthn_challenges/{handle} {
+      allow read, write: if false;
+    }
+
+    // ─── LogPup sign-in handoff, redeemed tokens (Admin SDK only) ──────────
+    // One document per redeemed handoff token, id = the token's `jti`. This is the REPLAY
+    // GUARD for /api/auth/logpup-sso: the route redeems by `create()`, which fails if the id
+    // already exists, so the write IS the check and two tabs opening the same link race in the
+    // database rather than both getting in.
+    //
+    // A client that could WRITE here could pre-create a jti and deny somebody else's genuine
+    // link, or DELETE one and replay a captured token into a full session. A client that could
+    // READ here learns which addresses have signed in across the two apps and when.
+    //
+    // Default-deny would already refuse all of this. The block is written out anyway so the
+    // posture is a decision someone made rather than an omission someone might "fix" — same
+    // reasoning as the two passkey collections above.
+    match /logpup_sso_redemptions/{jti} {
+      allow read, write: if false;
+    }
+
+    // ─── Greeting run lease (one document per day, id = YYYY-MM-DD) ────────
+    // Written by the 08:00 job and by /api/greetings/catch-up, both Admin SDK, and denied to
+    // the browser on purpose. This document is how a device that opens late learns the morning
+    // was already covered — so a client that could CREATE it could claim the day before anyone
+    // had been greeted and suppress every birthday, anniversary and card in the organisation
+    // with one write, silently and for good, since nothing re-opens a claimed day.
+    //
+    // Note this lease is a rate limiter, not the thing that prevents duplicates. Sending twice
+    // is already impossible: deliverGreeting claims a once-per-year marker per person per
+    // occasion with `.create()`, and the loser of that race writes nothing.
+    match /greeting_runs/{day} {
+      allow read, write: if false;
+    }
+  }
+}

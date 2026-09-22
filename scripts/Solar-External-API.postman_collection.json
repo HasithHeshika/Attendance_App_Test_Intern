@@ -1,0 +1,162 @@
+{
+  "info": {
+    "_postman_id": "a1b2c3d4-5e6f-4a8b-9c0d-solar-external-1",
+    "name": "Solar External API (solar.altavision.lk)",
+    "description": "Server-to-server external APIs for the Attendance app.\n\nAuth: collection-level API key sent as `x-api-key` header (edit the `apiKey` variable). `Authorization: Bearer {{apiKey}}` also works.\n\nStatus codes: 200 ok · 400 missing param · 401 no key · 403 bad key · 404 no match · 500 key not configured.\n\nEdit collection Variables → `baseUrl`, `apiKey`.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "auth": {
+    "type": "apikey",
+    "apikey": [
+      { "key": "value", "value": "{{apiKey}}", "type": "string" },
+      { "key": "key", "value": "x-api-key", "type": "string" },
+      { "key": "in", "value": "header", "type": "string" }
+    ]
+  },
+  "variable": [
+    { "key": "baseUrl", "value": "https://solar.altavision.lk", "type": "string" },
+    { "key": "apiKey", "value": "PMYzdts66cLW5dX6sluxD5oOVoTddqmb2Ob6pz_FVHMsLUtZ", "type": "string" }
+  ],
+  "item": [
+    {
+      "name": "1. Projects / sites (GPS)",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{baseUrl}}/api/external/projects?withGps=1",
+          "host": ["{{baseUrl}}"],
+          "path": ["api", "external", "projects"],
+          "query": [
+            { "key": "withGps", "value": "1", "description": "Only sites with coordinates" },
+            { "key": "source", "value": "all", "description": "new | legacy | all", "disabled": true }
+          ]
+        },
+        "description": "Installed sites: name, contact, GPS, capacity, stage. For geofencing."
+      }
+    },
+    {
+      "name": "2. Service records",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{baseUrl}}/api/external/services",
+          "host": ["{{baseUrl}}"],
+          "path": ["api", "external", "services"],
+          "query": [
+            { "key": "status", "value": "in_plan", "description": "pending|quotation_sent|in_plan|ongoing|work_completed|completed…", "disabled": true },
+            { "key": "source", "value": "all", "description": "new | legacy | all", "disabled": true },
+            { "key": "projectNo", "value": "AV00001", "disabled": true }
+          ]
+        },
+        "description": "Service jobs: contact, location, status, team, scheduled date."
+      }
+    },
+    {
+      "name": "3. Service plans + people",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{baseUrl}}/api/external/service-plans",
+          "host": ["{{baseUrl}}"],
+          "path": ["api", "external", "service-plans"],
+          "query": [
+            { "key": "from", "value": "2026-06-28", "description": "YYYY-MM-DD (default today)", "disabled": true },
+            { "key": "to", "value": "2026-07-31", "description": "YYYY-MM-DD", "disabled": true },
+            { "key": "includeCompleted", "value": "1", "disabled": true }
+          ]
+        },
+        "description": "Upcoming plans with leader / site engineer / members resolved to email, phone and EPF."
+      }
+    },
+    {
+      "name": "4. Notifications (per user)",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{baseUrl}}/api/external/notifications?email=you@altavision.lk",
+          "host": ["{{baseUrl}}"],
+          "path": ["api", "external", "notifications"],
+          "query": [
+            { "key": "email", "value": "you@altavision.lk", "description": "one of epf/email/phone required" },
+            { "key": "epf", "value": "151", "disabled": true },
+            { "key": "phone", "value": "0772083894", "disabled": true },
+            { "key": "since", "value": "2026-06-28T09:00:00Z", "description": "ISO cursor — only newer items", "disabled": true },
+            { "key": "limit", "value": "50", "description": "1–200 (default 50)", "disabled": true }
+          ]
+        },
+        "description": "A user's notifications, newest first, with unread count. Match by EPF → email → phone."
+      }
+    },
+    {
+      "name": "5a. EPF — look up (GET)",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{baseUrl}}/api/external/users/epf?epf=151",
+          "host": ["{{baseUrl}}"],
+          "path": ["api", "external", "users", "epf"],
+          "query": [
+            { "key": "epf", "value": "151", "description": "preferred match key" },
+            { "key": "email", "value": "you@altavision.lk", "disabled": true },
+            { "key": "phone", "value": "0772083894", "disabled": true }
+          ]
+        },
+        "description": "Verify / look up a user by EPF → email → phone."
+      }
+    },
+    {
+      "name": "5b. EPF — sync single (POST)",
+      "request": {
+        "method": "POST",
+        "header": [{ "key": "Content-Type", "value": "application/json" }],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"email\": \"you@altavision.lk\",\n  \"epfNumber\": \"151\",\n  \"phone\": \"0772083894\"\n}",
+          "options": { "raw": { "language": "json" } }
+        },
+        "url": {
+          "raw": "{{baseUrl}}/api/external/users/epf",
+          "host": ["{{baseUrl}}"],
+          "path": ["api", "external", "users", "epf"]
+        },
+        "description": "Push one EPF number — matched to a user by EPF → email → phone, then stored."
+      }
+    },
+    {
+      "name": "5c. EPF — sync bulk (POST)",
+      "request": {
+        "method": "POST",
+        "header": [{ "key": "Content-Type", "value": "application/json" }],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"users\": [\n    { \"email\": \"a@x.lk\", \"epfNumber\": \"E1\" },\n    { \"phone\": \"0772083894\", \"epfNumber\": \"E2\" }\n  ]\n}",
+          "options": { "raw": { "language": "json" } }
+        },
+        "url": {
+          "raw": "{{baseUrl}}/api/external/users/epf",
+          "host": ["{{baseUrl}}"],
+          "path": ["api", "external", "users", "epf"]
+        },
+        "description": "Push many EPF numbers at once. Returns per-record results[]."
+      }
+    },
+    {
+      "name": "6. Next-available free service",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{baseUrl}}/api/external/services/next-available",
+          "host": ["{{baseUrl}}"],
+          "path": ["api", "external", "services", "next-available"]
+        },
+        "description": "Next upcoming free service per confirmed proposal."
+      }
+    }
+  ]
+}

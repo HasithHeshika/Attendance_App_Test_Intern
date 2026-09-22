@@ -1,0 +1,68 @@
+name: Version bump on merge / push
+
+# Auto-increments the patch (Z) of the app version and records a "What's New"
+# entry on every change to main — whether merged via a PR OR pushed directly to
+# main (this project commits straight to main, so PR-only would never fire).
+# Major (X) / minor (Y) are bumped by maintainers with
+# `npm run version:major` / `npm run version:minor`.
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    types: [closed]
+    branches: [main]
+
+permissions:
+  contents: write
+
+# Serialise runs so two quick pushes can't race on the version files / the push.
+concurrency:
+  group: version-bump
+  cancel-in-progress: false
+
+jobs:
+  bump:
+    # PR events: only real merges. Push events: skip the bot's own release commit
+    # (it carries [skip ci], which already stops GitHub from re-triggering — the
+    # author guard below is belt-and-braces so we can never loop).
+    if: >
+      (github.event_name == 'pull_request' && github.event.pull_request.merged == true) ||
+      (github.event_name == 'push' && github.event.head_commit.author.name != 'github-actions[bot]')
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Bump patch (Z) from the merged PR / pushed commit
+        env:
+          EVENT:      ${{ github.event_name }}
+          PR_TITLE:   ${{ github.event.pull_request.title }}
+          COMMIT_MSG: ${{ github.event.head_commit.message }}
+        run: |
+          if [ "$EVENT" = "pull_request" ]; then
+            NOTE="$PR_TITLE"
+          else
+            # Use just the first line (subject) of the pushed commit as the change note.
+            NOTE=$(printf '%s\n' "$COMMIT_MSG" | head -n 1)
+          fi
+          node scripts/bump-version.mjs patch "$NOTE"
+
+      - name: Commit & push version bump
+        run: |
+          VERSION=$(node -p "const v=require('./src/data/version.json'); v.major+'.'+v.minor+'.'+v.patch")
+          git config user.name  "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add src/data/version.json src/data/whats-new.json package.json
+          git diff --staged --quiet && exit 0
+          git commit -m "chore: release v$VERSION [skip ci]"
+          # Rebase on top of any commit that landed while we ran, so the push can't be
+          # rejected as non-fast-forward under rapid direct commits.
+          git pull --rebase origin main
+          git push

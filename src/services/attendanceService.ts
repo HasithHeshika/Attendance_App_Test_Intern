@@ -1,0 +1,436 @@
+import {
+  collection, doc, getDoc, getDocs, setDoc, updateDoc, addDoc,
+  query, where, orderBy, Timestamp, limit,
+} from 'firebase/firestore';
+import { db } from '@/lib/firebase';
+import type {
+  AttendanceRecord, AttendanceEditRequest, WorkingPlace,
+} from '@/lib/types';
+import { format } from 'date-fns';
+
+const ATT_COL  = 'attendances';
+const EDIT_COL = 'attendance_edit_requests';
+
+// ─── Helpers ──────────────────────────────────────────────────────────────────
+function docId(epf: string, date: string) {
+  return `${epf}_${date}`;
+}
+
+function today() {
+  return format(new Date(), 'yyyy-MM-dd');
+}
+
+// ─── Read ──────────────────────────────────────────────────────────────────────
+export async function getAttendanceByDate(
+  epf: string, date: string
+): Promise<AttendanceRecord | null> {
+  const ref  = doc(db, ATT_COL, docId(epf, date));
+  const snap = await getDoc(ref);
+  if (!snap.exists()) return null;
+  return { id: snap.id, ...snap.data() } as AttendanceRecord;
+}
+
+export async function getTodayAttendance(epf: string): Promise<AttendanceRecord | null> {
+  return getAttendanceByDate(epf, today());
+}
+
+export async function getMonthlyAttendance(
+  epf: string, year: number, month: number
+): Promise<AttendanceRecord[]> {
+  const prefix = `${String(year)}-${String(month).padStart(2, '0')}`;
+  // Equality-only query (epf_number) — covered by the automatic single-field index, so this
+  // works without the (epf_number, date) composite index being deployed. Filter the month and
+  // sort by date client-side. One attendance doc per day means an employee's history is small.
+  const snap = await getDocs(query(collection(db, ATT_COL), where('epf_number', '==', epf)));
+  return snap.docs
+    .map(d => ({ id: d.id, ...d.data() } as AttendanceRecord))
+    .filter(r => typeof r.date === 'string' && r.date >= `${prefix}-01` && r.date <= `${prefix}-31` && !r.is_deleted)
+    .sort((a, b) => a.date.localeCompare(b.date));
+}
+
+export async function getEmployeeAttendanceHistory(
+  epf: string
+): Promise<AttendanceRecord[]> {
+  const snap = await getDocs(query(collection(db, ATT_COL), where('epf_number', '==', epf)));
+  return snap.docs
+    .map(d => ({ id: d.id, ...d.data() } as AttendanceRecord))
+    .filter(r => typeof r.date === 'string' && !r.is_deleted)
+    .sort((a, b) => a.date.localeCompare(b.date));
+}
+
+// Soft-delete a day's attendance record — keeps the document (for audit) but flags it deleted
+// so reads (calendar, report) skip it. System-admin action; a reason is recorded.
+export async function softDeleteAttendance(
+  docId: string, deletedBy: string, reason: string
+): Promise<void> {
+  await updateDoc(doc(db, ATT_COL, docId), {
+    is_deleted:    true,
+    deleted_by:    deletedBy,
+    deleted_at:    Timestamp.now(),
+    delete_reason: reason,
+    updated_at:    Timestamp.now(),
+  });
+}
+
+// Directly correct a session's check-in/check-out clock time (system-admin action, e.g. Users
+// page day detail). Only touches the timestamps — approval status, allowances, working place
+// etc. are left as-is. `sessionIndex` selects an entry in the `sessions[]` array; pass null for
+// legacy docs that still store the day's session on the record's top-level fields.
+export async function adminUpdateAttendanceTimes(
+  attendanceId: string,
+  sessionIndex: number | null,
+  updates: { check_in?: Date; check_out?: Date },
+): Promise<void> {
+  const ref = doc(db, ATT_COL, attendanceId);
+  const now = Timestamp.now();
+  if (sessionIndex == null) {
+    const patch: Record<string, unknown> = { updated_at: now };
+    if (updates.check_in)  patch.check_in  = Timestamp.fromDate(updates.check_in);
+    if (updates.check_out) patch.check_out = Timestamp.fromDate(updates.check_out);
+    await updateDoc(ref, patch);
+    return;
+  }
+  const snap = await getDoc(ref);
+  if (!snap.exists()) throw new Error('Attendance record not found');
+  const sessions = Array.isArray(snap.data().sessions) ? [...snap.data().sessions] : [];
+  if (!sessions[sessionIndex]) throw new Error('Session not found');
+  const s = { ...sessions[sessionIndex] };
+  if (updates.check_in)  s.check_in  = Timestamp.fromDate(updates.check_in);
+  if (updates.check_out) s.check_out = Timestamp.fromDate(updates.check_out);
+  sessions[sessionIndex] = s;
+  await updateDoc(ref, { sessions, updated_at: now });
+}
+
+export async function getPendingApprovals(
+  supervisorEpf: string, companyId: string
+): Promise<AttendanceRecord[]> {
+  // Get employees under this supervisor
+  const empQ = query(
+    collection(db, 'users'),
+    where('supervisor_epf', '==', supervisorEpf),
+    where('company_id', '==', companyId),
+    where('is_active', '==', true),
+  );
+  const empSnap = await getDocs(empQ);
+  const epfs = empSnap.docs.map(d => d.data().epf_number as string);
+  if (!epfs.length) return [];
+
+  // Firestore 'in' supports max 30 items — chunk if needed
+  const allRecords: AttendanceRecord[] = [];
+  for (let i = 0; i < epfs.length; i += 30) {
+    const chunk = epfs.slice(i, i + 30);
+    const q2 = query(
+      collection(db, ATT_COL),
+      where('epf_number', 'in', chunk),
+      where('date', '==', today()),
+    );
+    const snap = await getDocs(q2);
+    snap.docs.forEach(d => allRecords.push({ id: d.id, ...d.data() } as AttendanceRecord));
+  }
+  // Filter to only pending check-ins or check-outs
+  return allRecords.filter(
+    r => r.check_in_status === 'pending' || r.check_out_status === 'pending'
+  );
+}
+
+export async function getAllPendingApprovals(companyId?: string): Promise<AttendanceRecord[]> {
+  const q = companyId
+    ? query(
+        collection(db, ATT_COL),
+        where('date', '==', today()),
+        where('company_id', '==', companyId),
+      )
+    : query(collection(db, ATT_COL), where('date', '==', today()));
+
+  const snap = await getDocs(q);
+  return snap.docs
+    .map(d => ({ id: d.id, ...d.data() } as AttendanceRecord))
+    .filter(r => r.check_in_status === 'pending' || r.check_out_status === 'pending');
+}
+
+export async function getCompanyAttendanceForMonth(
+  companyId: string, year: number, month: number
+): Promise<AttendanceRecord[]> {
+  const prefix = `${String(year)}-${String(month).padStart(2, '0')}`;
+  // Range on `date` ONLY (covered by the automatic single-field index — no composite index to
+  // deploy), then filter to the selected company client-side. This deliberately avoids the
+  // (company_id, date) composite index: it was never declared in firestore.indexes.json nor
+  // deployed, so the old per-company query threw "requires an index" and the report failed
+  // whenever a specific company (not "All Companies") was selected. Reading one month across
+  // all companies is bounded and fine for this occasional admin export.
+  const snap = await getDocs(query(
+    collection(db, ATT_COL),
+    where('date', '>=', `${prefix}-01`),
+    where('date', '<=', `${prefix}-31`),
+    orderBy('date'),
+  ));
+  return snap.docs
+    .map(d => ({ id: d.id, ...d.data() } as AttendanceRecord))
+    .filter(r => !r.is_deleted && (!companyId || r.company_id === companyId));
+}
+
+// Single calendar day, org-wide then company-filtered client-side — same index-avoidance
+// convention as getCompanyAttendanceForMonth above. Used by Attendance View to pull in the 1-2
+// days BEFORE a visible month/range: a checkout within the 36h cross-day lookback (see
+// CHECKOUT_LOOKBACK_HOURS in shiftAutoClose.ts) is written back into the CHECK-IN day's own
+// document, so a page showing "today" needs yesterday's (and the day before's) record too in
+// order to notice a session that closed this morning.
+export async function getCompanyAttendanceForDate(
+  companyId: string, date: string
+): Promise<AttendanceRecord[]> {
+  const snap = await getDocs(query(collection(db, ATT_COL), where('date', '==', date)));
+  return snap.docs
+    .map(d => ({ id: d.id, ...d.data() } as AttendanceRecord))
+    .filter(r => !r.is_deleted && (!companyId || r.company_id === companyId));
+}
+
+// ─── Write ─────────────────────────────────────────────────────────────────────
+export async function checkIn(data: {
+  epf_number:    string;
+  company_id:    string;
+  check_in_time: Date;
+  request_from:  string[];
+}): Promise<void> {
+  const date = format(data.check_in_time, 'yyyy-MM-dd');
+  const id   = docId(data.epf_number, date);
+  const now  = Timestamp.now();
+  await setDoc(doc(db, ATT_COL, id), {
+    id,
+    epf_number:             data.epf_number,
+    company_id:             data.company_id,
+    date,
+    check_in:               Timestamp.fromDate(data.check_in_time),
+    check_out:              null,
+    working_place:          null,
+    site_number:            null,
+    is_outstation:          false,
+    outstation_location_id: null,
+    outstation_name:        null,
+    outstation_address:     null,
+    is_outstation_approved: false,
+    morning_allowance:      0,
+    evening_allowance:      0,
+    check_in_approved_by:   null,
+    check_out_approved_by:  null,
+    check_in_status:        data.request_from.length > 0 ? 'pending' : 'approved',
+    check_out_status:       'pending',
+    request_from:           data.request_from,
+    is_past_submission:     false,
+    past_approved_by:       null,
+    reject_reason:          null,
+    created_at:             now,
+    updated_at:             now,
+  });
+}
+
+export async function checkOut(data: {
+  epf_number:             string;
+  date:                   string;
+  check_out_time:         Date;
+  working_place:          WorkingPlace;
+  site_number?:           string | null;
+  is_outstation:          boolean;
+  outstation_location_id?: string | null;
+  outstation_name?:       string | null;
+  outstation_address?:    string | null;
+}): Promise<void> {
+  const id = docId(data.epf_number, data.date);
+  await updateDoc(doc(db, ATT_COL, id), {
+    check_out:              Timestamp.fromDate(data.check_out_time),
+    working_place:          data.working_place,
+    site_number:            data.site_number ?? null,
+    is_outstation:          data.is_outstation,
+    outstation_location_id: data.outstation_location_id ?? null,
+    outstation_name:        data.outstation_name ?? null,
+    outstation_address:     data.outstation_address ?? null,
+    check_out_status:       'pending',
+    updated_at:             Timestamp.now(),
+  });
+}
+
+export async function submitPastAttendance(data: {
+  epf_number:             string;
+  company_id:             string;
+  date:                   string;
+  check_in_time:          Date;
+  check_out_time:         Date;
+  working_place:          WorkingPlace;
+  site_number?:           string | null;
+  is_outstation:          boolean;
+  outstation_location_id?: string | null;
+  outstation_name?:       string | null;
+  outstation_address?:    string | null;
+  request_from:           string[];
+}): Promise<void> {
+  const id  = docId(data.epf_number, data.date);
+  const now = Timestamp.now();
+  await setDoc(doc(db, ATT_COL, id), {
+    id,
+    epf_number:             data.epf_number,
+    company_id:             data.company_id,
+    date:                   data.date,
+    check_in:               Timestamp.fromDate(data.check_in_time),
+    check_out:              Timestamp.fromDate(data.check_out_time),
+    working_place:          data.working_place,
+    site_number:            data.site_number ?? null,
+    is_outstation:          data.is_outstation,
+    outstation_location_id: data.outstation_location_id ?? null,
+    outstation_name:        data.outstation_name ?? null,
+    outstation_address:     data.outstation_address ?? null,
+    is_outstation_approved: false,
+    morning_allowance:      0,
+    evening_allowance:      0,
+    check_in_approved_by:   null,
+    check_out_approved_by:  null,
+    check_in_status:        'pending',
+    check_out_status:       'pending',
+    request_from:           data.request_from,
+    is_past_submission:     true,
+    past_approved_by:       null,
+    reject_reason:          null,
+    created_at:             now,
+    updated_at:             now,
+  });
+}
+
+export async function approveAttendance(
+  attendanceId: string,
+  approverEpf:  string,
+  data: {
+    check_in_time?:         Date;
+    check_out_time?:        Date;
+    morning_allowance?:     0 | 1 | 2;
+    evening_allowance?:     0 | 1;
+    working_place?:         WorkingPlace;
+    site_number?:           string | null;
+    is_outstation_approved?: boolean;
+  }
+): Promise<void> {
+  const updates: Record<string, unknown> = { updated_at: Timestamp.now() };
+  if (data.check_in_time !== undefined) {
+    updates.check_in             = Timestamp.fromDate(data.check_in_time);
+    updates.check_in_status      = 'approved';
+    updates.check_in_approved_by = approverEpf;
+    updates.morning_allowance    = data.morning_allowance ?? 0;
+  }
+  if (data.check_out_time !== undefined) {
+    updates.check_out             = Timestamp.fromDate(data.check_out_time);
+    updates.check_out_status      = 'approved';
+    updates.check_out_approved_by = approverEpf;
+    updates.evening_allowance     = data.evening_allowance ?? 0;
+    if (data.working_place)         updates.working_place = data.working_place;
+    if (data.site_number !== undefined) updates.site_number = data.site_number;
+    if (data.is_outstation_approved !== undefined)
+      updates.is_outstation_approved = data.is_outstation_approved;
+  }
+  await updateDoc(doc(db, ATT_COL, attendanceId), updates);
+}
+
+export async function rejectAttendance(
+  attendanceId: string, reason: string
+): Promise<void> {
+  await updateDoc(doc(db, ATT_COL, attendanceId), {
+    check_in_status:  'rejected',
+    check_out_status: 'rejected',
+    reject_reason:    reason,
+    updated_at:       Timestamp.now(),
+  });
+}
+
+// ─── Edit Requests ─────────────────────────────────────────────────────────────
+export async function createEditRequest(data: Omit<AttendanceEditRequest, 'id' | 'created_at' | 'status' | 'considered_by' | 'considered_at' | 'reject_reason'>): Promise<string> {
+  const ref = await addDoc(collection(db, EDIT_COL), {
+    ...data,
+    status:        'pending',
+    considered_by: null,
+    considered_at: null,
+    reject_reason: null,
+    created_at:    Timestamp.now(),
+  });
+  return ref.id;
+}
+
+export async function getEditRequests(supervisorEpf: string): Promise<AttendanceEditRequest[]> {
+  const empQ = query(
+    collection(db, 'users'),
+    where('supervisor_epf', '==', supervisorEpf),
+    where('is_active', '==', true),
+  );
+  const empSnap = await getDocs(empQ);
+  const epfs = empSnap.docs.map(d => d.data().epf_number as string);
+  if (!epfs.length) return [];
+
+  const all: AttendanceEditRequest[] = [];
+  for (let i = 0; i < epfs.length; i += 30) {
+    const chunk = epfs.slice(i, i + 30);
+    const q = query(
+      collection(db, EDIT_COL),
+      where('epf_number', 'in', chunk),
+      where('status', '==', 'pending'),
+      orderBy('created_at', 'desc'),
+    );
+    const snap = await getDocs(q);
+    snap.docs.forEach(d => all.push({ id: d.id, ...d.data() } as AttendanceEditRequest));
+  }
+  return all;
+}
+
+export async function getAllEditRequests(companyId?: string): Promise<AttendanceEditRequest[]> {
+  const q = query(
+    collection(db, EDIT_COL),
+    where('status', '==', 'pending'),
+    orderBy('created_at', 'desc'),
+  );
+  const snap = await getDocs(q);
+  return snap.docs.map(d => ({ id: d.id, ...d.data() } as AttendanceEditRequest));
+}
+
+export async function getMyEditRequests(epf: string): Promise<AttendanceEditRequest[]> {
+  const q = query(
+    collection(db, EDIT_COL),
+    where('epf_number', '==', epf),
+    orderBy('created_at', 'desc'),
+    limit(20),
+  );
+  const snap = await getDocs(q);
+  return snap.docs.map(d => ({ id: d.id, ...d.data() } as AttendanceEditRequest));
+}
+
+export async function considerEditRequest(
+  requestId:    string,
+  considerByEpf: string,
+  action:        'approve' | 'reject',
+  rejectReason?: string
+): Promise<void> {
+  const now = Timestamp.now();
+  if (action === 'approve') {
+    // Apply the requested changes to the original attendance record
+    const reqRef  = doc(db, EDIT_COL, requestId);
+    const reqSnap = await getDoc(reqRef);
+    if (!reqSnap.exists()) return;
+    const req = reqSnap.data() as AttendanceEditRequest;
+
+    const attUpdates: Record<string, unknown> = { updated_at: now };
+    if (req.requested_check_in)           attUpdates.check_in  = Timestamp.fromDate(new Date(req.requested_check_in));
+    if (req.requested_check_out)          attUpdates.check_out = Timestamp.fromDate(new Date(req.requested_check_out));
+    if (req.requested_working_place)      attUpdates.working_place = req.requested_working_place;
+    if (req.requested_site_number !== undefined) attUpdates.site_number = req.requested_site_number;
+    if (req.requested_is_outstation !== null)    attUpdates.is_outstation = req.requested_is_outstation;
+    if (req.requested_outstation_location_id)    attUpdates.outstation_location_id = req.requested_outstation_location_id;
+    if (req.requested_outstation_name)           attUpdates.outstation_name = req.requested_outstation_name;
+
+    await updateDoc(doc(db, ATT_COL, req.attendance_id), attUpdates);
+    await updateDoc(reqRef, {
+      status:        'approved',
+      considered_by: considerByEpf,
+      considered_at: now,
+    });
+  } else {
+    await updateDoc(doc(db, EDIT_COL, requestId), {
+      status:        'rejected',
+      considered_by: considerByEpf,
+      considered_at: now,
+      reject_reason: rejectReason ?? '',
+    });
+  }
+}
