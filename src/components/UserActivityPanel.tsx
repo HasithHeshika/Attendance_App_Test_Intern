@@ -14,11 +14,13 @@ import { getOutstationLocations } from '@/services/outstationService';
 import { getShiftAssignmentsForEpf } from '@/services/shiftService';
 import { getScheduleAssignmentsForEmployee } from '@/services/scheduleAssignmentService';
 import { getWorkingPlaces } from '@/services/workingPlaceService';
+import { getWorkPatterns } from '@/services/workPatternService';
+import { getLatestSchedule } from '@/services/workingScheduleService';
 import { getAcceptedHolidays, getHolidaySettings, fetchPublicHolidays } from '@/services/holidayService';
 import {
   computeUserMonthlyReport, exportUserMonthlyReportXlsx,
   buildDailyRegister, exportDailyRegisterXlsx,
-  LEAVE_HOLIDAY_CUTOFF,
+  LEAVE_COUNT_CUTOFF,
 } from '@/lib/userMonthlyReport';
 import { roleCategory } from '@/lib/permissions';
 import { canonPlaceName, stripSiteNo } from '@/lib/placeName';
@@ -248,7 +250,7 @@ export default function UserActivityPanel({ epf, user, usersByEpf }: { epf: stri
     setDownloading(true);
     try {
       const isTechnician = roleCategory(user.role, roles) === 'technician';
-      const [attendance, empLeaves, outstations, holidays, publicHols, shiftAssignments, workingPlaces] = await Promise.all([
+      const [attendance, empLeaves, outstations, holidays, publicHols, shiftAssignments, workingPlaces, workPatterns, latestSchedule] = await Promise.all([
         getMonthlyAttendance(epf, year, month),
         getEmployeeLeavesForMonth(epf, year, month),
         getOutstationLocations(),
@@ -256,6 +258,10 @@ export default function UserActivityPanel({ epf, user, usersByEpf }: { epf: stri
         fetchPublicHolidays(year),   // for Poya dates (counted as extra working days)
         isTechnician ? getShiftAssignmentsForEpf(epf) : Promise.resolve([]),
         isTechnician ? getWorkingPlaces() : Promise.resolve([]),
+        // Best-effort, as on the attendance calendar: if either read fails, the built-in week
+        // applies and the leave count is exactly what it was before work patterns existed.
+        getWorkPatterns().catch(() => []),
+        getLatestSchedule(epf).catch(() => null),
       ]);
       const poyaDates = new Set(publicHols.filter(h => h.is_poya).map(h => h.date));
       const shiftPlaceNames = new Set(
@@ -264,7 +270,13 @@ export default function UserActivityPanel({ epf, user, usersByEpf }: { epf: stri
         user, isTechnician, attendance, leaves: empLeaves, outstations, holidays, year, month,
         poyaDates, shiftAssignments, shiftPlaceNames,
         saturdayHalfDay: tenant.features.saturdayHalfDay,
-                leaveHolidayCutoff: LEAVE_HOLIDAY_CUTOFF,
+                leaveCountCutoff: LEAVE_COUNT_CUTOFF,
+                        workPatterns,
+        patternSubject: {
+          company_id: user.company_id ?? null,
+          role: user.role ?? null,
+          working_place: latestSchedule?.working_place ?? null,
+        },
       });
       await exportUserMonthlyReportXlsx(report, year, month);
       toast.success(`Summary downloaded — ${MONTHS[month - 1]} ${year}`);
