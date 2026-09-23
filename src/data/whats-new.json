@@ -1,5 +1,12 @@
 [
   {
+    "version": "1.9.69",
+    "date": "2026-09-23T05:57:30.232Z",
+    "changes": [
+      "Merge pull request #1 from HasithHeshika/fix/logpup-bridge-loose-ends"
+    ]
+  },
+  {
     "version": "1.9.68",
     "date": "2026-09-22T04:15:24.609Z",
     "changes": [
@@ -340,13 +347,6 @@
     "date": "2026-09-03T09:39:58.585Z",
     "changes": [
       "Move tenancy to registry; add platform console"
-    ]
-  },
-  {
-    "version": "1.9.19",
-    "date": "2026-09-03T06:23:41.388Z",
-    "changes": [
-      "Dev yasitha"
     ]
   }
 ]
