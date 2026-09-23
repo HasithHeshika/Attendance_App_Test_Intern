@@ -5,6 +5,7 @@ import { signInWithCustomToken } from 'firebase/auth';
 import { Loader2, AlertCircle } from 'lucide-react';
 import { auth } from '@/lib/firebase';
 import { useT } from '@/store/appStore';
+import { safeNext } from '@/lib/safeNext';
 
 /**
  * Landing page for a sign-in handoff from LogPup.
@@ -40,7 +41,7 @@ function Redeem() {
     ran.current = true;
 
     const token = params.get('token');
-    const next = safeNext(params.get('next'));
+    const next = safeNext(params.get('next'), '/dashboard');
 
     if (!token) {
       setError(tr.logpupLinkMissingToken);
@@ -120,16 +121,4 @@ function messageFor(code: unknown, tr: ReturnType<typeof useT>): string {
     case 'This link has already been used': return tr.logpupLinkUsed;
     default:                              return tr.logpupLinkExpired;
   }
-}
-
-/**
- * Where to land after signing in.
- *
- * One leading slash, never two. `//evil.example` is a protocol-relative URL that browsers treat
- * as absolute, so an unvalidated `next` on a sign-in route is an open redirect — the classic way
- * to harvest a session by bouncing somebody to a lookalike host straight after they authenticate.
- */
-function safeNext(value: string | null): string {
-  if (!value || !value.startsWith('/') || value.startsWith('//')) return '/dashboard';
-  return value;
 }
