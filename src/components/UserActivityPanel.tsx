@@ -18,6 +18,7 @@ import { getAcceptedHolidays, getHolidaySettings, fetchPublicHolidays } from '@/
 import {
   computeUserMonthlyReport, exportUserMonthlyReportXlsx,
   buildDailyRegister, exportDailyRegisterXlsx,
+  LEAVE_HOLIDAY_CUTOFF,
 } from '@/lib/userMonthlyReport';
 import { roleCategory } from '@/lib/permissions';
 import { canonPlaceName, stripSiteNo } from '@/lib/placeName';
@@ -263,6 +264,7 @@ export default function UserActivityPanel({ epf, user, usersByEpf }: { epf: stri
         user, isTechnician, attendance, leaves: empLeaves, outstations, holidays, year, month,
         poyaDates, shiftAssignments, shiftPlaceNames,
         saturdayHalfDay: tenant.features.saturdayHalfDay,
+                leaveHolidayCutoff: LEAVE_HOLIDAY_CUTOFF,
       });
       await exportUserMonthlyReportXlsx(report, year, month);
       toast.success(`Summary downloaded — ${MONTHS[month - 1]} ${year}`);

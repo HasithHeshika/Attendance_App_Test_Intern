@@ -126,6 +126,17 @@ export interface UserMonthlyReport {
   suspenseDeduction: number;
 }
 
+/**
+ * The first day on which a company holiday inside a leave stops being charged as leave.
+ *
+ * Salary is paid for the 10th of one month to the 10th of the next. This is the first day of
+ * the first pay period that was still unpaid when the rule was released, so no figure behind
+ * a salary already paid changes. It is one date for every tenant, because it corrects a shared
+ * rule rather than a policy that one organisation chose. Treat any change to it as a payroll
+ * decision, not a code change.
+ */
+export const LEAVE_HOLIDAY_CUTOFF = '2026-09-11';
+
 export function computeUserMonthlyReport(opts: {
   user: AppUser;
   isTechnician: boolean;

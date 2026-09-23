@@ -25,6 +25,7 @@ import { getAcceptedHolidays, fetchPublicHolidays } from '@/services/holidayServ
 import {
   computeUserMonthlyReport, exportCompanyCategoryReportXlsx,
   computeAttendanceViewReportRows, exportAttendanceViewReportXlsx,
+  LEAVE_HOLIDAY_CUTOFF,
 } from '@/lib/userMonthlyReport';
 import { getMonthlyDeductionTotals } from '@/services/suspenseService';
 import SuspenseReport from '@/components/reports/SuspenseReport';
@@ -289,6 +290,7 @@ function ReportsContent() {
         shiftAssignments: shiftByEpf.get(u.epf_number) ?? [],
         shiftPlaceNames,
         saturdayHalfDay: tenant.features.saturdayHalfDay,
+                leaveHolidayCutoff: LEAVE_HOLIDAY_CUTOFF,
         suspenseDeduction: deductionTotals.get(u.epf_number) ?? 0,
       }));
 

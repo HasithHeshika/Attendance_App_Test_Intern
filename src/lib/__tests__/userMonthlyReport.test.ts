@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { computeUserMonthlyReport } from '../userMonthlyReport';
+import { computeUserMonthlyReport, LEAVE_HOLIDAY_CUTOFF } from '../userMonthlyReport';
 import type { AppUser, AttendanceRecord, LeaveRecord } from '../types';
 
 // August 2026: Saturdays fall on the 1st, 8th, 15th, 22nd and 29th; Sundays on the 2nd and
@@ -165,6 +165,12 @@ test('a holiday the roster covers is still charged', () => {
     leaveHolidayCutoff: '2026-08-01',
   });
   assert.equal(r.totalLeaves, 3);
+});
+
+test('the cut-off is written as a full yyyy-MM-dd date', () => {
+  // Dates are compared as text, so '2026-9-11' would sort after '2026-09-11' and the
+  // rule would silently start on the wrong day.
+  assert.match(LEAVE_HOLIDAY_CUTOFF, /^\d{4}-\d{2}-\d{2}$/);
 });
 
 // ─── absent days ───────────────────────────────────────────────────────────────
