@@ -1,5 +1,12 @@
 [
   {
+    "version": "1.9.70",
+    "date": "2026-09-23T05:57:43.336Z",
+    "changes": [
+      "Fix/logpup bridge loose ends"
+    ]
+  },
+  {
     "version": "1.9.69",
     "date": "2026-09-23T05:57:30.232Z",
     "changes": [
@@ -340,13 +347,6 @@
     "date": "2026-09-04T08:33:41.982Z",
     "changes": [
       "Fingerprint API changes"
-    ]
-  },
-  {
-    "version": "1.9.20",
-    "date": "2026-09-03T09:39:58.585Z",
-    "changes": [
-      "Move tenancy to registry; add platform console"
     ]
   }
 ]
