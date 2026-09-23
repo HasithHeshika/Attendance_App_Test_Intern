@@ -127,6 +127,46 @@ test('the month clamp still holds — only the part inside the month counts', ()
   assert.equal(r.totalLeaves, 2.5);   // Sat 1 Aug 0.5 + Sun 2 Aug 1 + Mon 3 Aug 1
 });
 
+// ─── holidays inside a leave ───────────────────────────────────────────────────
+// Tuesday 4 August is the company holiday. The leave runs from Monday 3 to Wednesday 5.
+
+test('without a cut-off a holiday inside a leave is still charged', () => {
+  const r = run({
+    leaves: [leave('2026-08-03', '2026-08-05')],
+    holidays: new Set(['2026-08-04']),
+  });
+  assert.equal(r.totalLeaves, 3);
+});
+
+test('from the cut-off a holiday inside a leave is not charged', () => {
+  const r = run({
+    leaves: [leave('2026-08-03', '2026-08-05')],
+    holidays: new Set(['2026-08-04']),
+    leaveHolidayCutoff: '2026-08-01',
+  });
+  assert.equal(r.totalLeaves, 2);
+  assert.equal(r.approvedLeaves, 2);
+});
+
+test('a holiday before the cut-off is still charged, so past months do not change', () => {
+  const r = run({
+    leaves: [leave('2026-08-03', '2026-08-05')],
+    holidays: new Set(['2026-08-04']),
+    leaveHolidayCutoff: '2026-08-05',
+  });
+  assert.equal(r.totalLeaves, 3);
+});
+
+test('a holiday the roster covers is still charged', () => {
+  const r = run({
+    leaves: [leave('2026-08-03', '2026-08-05')],
+    holidays: new Set(['2026-08-04']),
+    shiftAssignments: [{ from_date: '2026-08-04', to_date: '2026-08-04' }],
+    leaveHolidayCutoff: '2026-08-01',
+  });
+  assert.equal(r.totalLeaves, 3);
+});
+
 // ─── absent days ───────────────────────────────────────────────────────────────
 
 test('without the flag every missed weekday-or-Saturday is a whole absent day', () => {

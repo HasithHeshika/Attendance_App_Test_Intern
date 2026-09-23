@@ -150,6 +150,10 @@ export function computeUserMonthlyReport(opts: {
   // absentDays. SHIFT work is exempt — a Saturday the roster covers is a whole day, because
   // a shift is a shift whatever the weekday. Left off, every day weighs 1 exactly as before.
   saturdayHalfDay?: boolean;
+    // From this date (yyyy-MM-dd) onwards, an accepted company holiday inside a leave is not
+  // charged as a leave day. Days before it keep the old count, so a month that has already
+  // been reported does not change. Left out, every holiday is charged exactly as before.
+  leaveHolidayCutoff?: string;
   // Suspense salary deduction for this employee this month (fetched separately, passed in).
   suspenseDeduction?: number;
 }): UserMonthlyReport {
@@ -158,6 +162,7 @@ export function computeUserMonthlyReport(opts: {
   const shiftAssignments = opts.shiftAssignments ?? [];
   const shiftPlaceCanon  = new Set([...(opts.shiftPlaceNames ?? [])].map(canonPlaceName));
   const saturdayHalfDay  = opts.saturdayHalfDay ?? false;
+  const leaveHolidayCutoff = opts.leaveHolidayCutoff ?? null;
   const mm         = String(month).padStart(2, '0');
   const daysInMo   = getDaysInMonth(new Date(year, month - 1));
   const monthStart = `${year}-${mm}-01`;
@@ -275,16 +280,27 @@ export function computeUserMonthlyReport(opts: {
   // Saturday inside the range contributes 0.5. A leave day carries no working place, so the
   // only way to ask "was this a shift day?" is the roster — a Saturday the roster covers
   // stays a whole leave day, matching how the same Saturday would have counted as work.
+    //
+  // From leaveHolidayCutoff onwards, an accepted company holiday inside a leave is not
+  // charged: nobody was expected to work that day, so taking it off uses no leave. A holiday
+  // the roster covers is still charged, because a rostered person was expected to work it.
+  const isUnchargedHoliday = (ds: string): boolean =>
+    leaveHolidayCutoff !== null
+    && ds >= leaveHolidayCutoff
+    && holidays.has(ds)
+    && !rosterCovers(ds);
+
   const leaveDaysInMonth = (l: LeaveRecord): number => {
     const from = l.from_date > monthStart ? l.from_date : monthStart;
     const to   = l.to_date   < monthEnd   ? l.to_date   : monthEnd;
     if (from > to) return 0;
     const span = differenceInCalendarDays(parseISO(to), parseISO(from)) + 1;
-    if (!saturdayHalfDay) return span;
+    if (!saturdayHalfDay && leaveHolidayCutoff === null) return span;
     const start = parseISO(from);
     let days = 0;
     for (let i = 0; i < span; i++) {
       const ds = format(addDays(start, i), 'yyyy-MM-dd');
+      if (isUnchargedHoliday(ds)) continue;
       days += dayWeight(ds, rosterCovers(ds));
     }
     return days;
