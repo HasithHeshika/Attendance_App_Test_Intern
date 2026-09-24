@@ -1,5 +1,12 @@
 [
   {
+    "version": "1.9.71",
+    "date": "2026-09-24T04:09:54.920Z",
+    "changes": [
+      "Merge pull request #2 from HasithHeshika/fix/leave-day-count"
+    ]
+  },
+  {
     "version": "1.9.70",
     "date": "2026-09-23T05:57:43.336Z",
     "changes": [
@@ -340,13 +347,6 @@
     "date": "2026-09-04T09:35:36.027Z",
     "changes": [
       "Merge branch 'main' of https://github.com/devopsaltavision/Attendance-Web-App"
-    ]
-  },
-  {
-    "version": "1.9.21",
-    "date": "2026-09-04T08:33:41.982Z",
-    "changes": [
-      "Fingerprint API changes"
     ]
   }
 ]
