@@ -22,9 +22,13 @@ import { getWorkingPlaces } from '@/services/workingPlaceService';
 import { getDepartments } from '@/services/departmentService';
 import { getScheduleAssignmentsForMonth } from '@/services/scheduleAssignmentService';
 import { getAcceptedHolidays, fetchPublicHolidays } from '@/services/holidayService';
+import { getWorkPatterns } from '@/services/workPatternService';
+import { getEffectiveScheduleMap } from '@/services/workingScheduleService';
+import { localDateString } from '@/lib/utils';
 import {
   computeUserMonthlyReport, exportCompanyCategoryReportXlsx,
   computeAttendanceViewReportRows, exportAttendanceViewReportXlsx,
+  LEAVE_COUNT_CUTOFF,
 } from '@/lib/userMonthlyReport';
 import { getMonthlyDeductionTotals } from '@/services/suspenseService';
 import SuspenseReport from '@/components/reports/SuspenseReport';
@@ -233,7 +237,7 @@ function ReportsContent() {
       const monthFromMs = new Date(year, month - 1, 1).getTime();
       const monthToMs   = new Date(year, month, 1).getTime() - 1;
 
-      const [employees, attendance, leaves, outstations, publicHols, shiftAssignments, workingPlaces, deductionTotals] = await Promise.all([
+      const [employees, attendance, leaves, outstations, publicHols, shiftAssignments, workingPlaces, deductionTotals, workPatterns] = await Promise.all([
         // Inactive accounts INCLUDED — narrowed to the ones who actually worked this month
         // just below. Resigning deactivates the account (see /users), so the default active-
         // only list silently dropped every leaver from the very month they worked out their
@@ -249,6 +253,9 @@ function ReportsContent() {
         // Suspense salary deductions — Alta Vision-only module; other tenants must not scan
         // (or even show the column for) a collection they don't use.
         tenant.features.suspense ? getMonthlyDeductionTotals(monthFromMs, monthToMs) : Promise.resolve(new Map<string, number>()),
+        // Best-effort, as on the attendance calendar: if the read fails, the built-in week
+        // applies and the leave count is exactly what it was before work patterns existed.
+        getWorkPatterns().catch(() => []),
       ]);
       const poyaDates = new Set(publicHols.filter(h => h.is_poya).map(h => h.date));
 
@@ -277,6 +284,16 @@ function ReportsContent() {
       const shiftPlaceNames = new Set(
         workingPlaces.filter(w => w.tags?.includes('shift')).map(w => w.name.toLowerCase()));
 
+      // A location-scoped work pattern needs each employee's current working place. Reading
+      // every working schedule is one whole-collection read, so it happens only when such a
+      // pattern exists. If it fails, a location pattern simply does not apply.
+      const needsPlace = workPatterns.some(p => p.is_active && p.scope === 'location');
+      let schedules: Record<string, { working_place: string }> = {};
+      if (needsPlace) {
+        try { schedules = await getEffectiveScheduleMap(localDateString()); }
+        catch { /* fall back to company and role patterns */ }
+      }
+
       const rows = catEmployees.map(u => computeUserMonthlyReport({
         user: u,
         isTechnician: wantTech,
@@ -289,6 +306,13 @@ function ReportsContent() {
         shiftAssignments: shiftByEpf.get(u.epf_number) ?? [],
         shiftPlaceNames,
         saturdayHalfDay: tenant.features.saturdayHalfDay,
+        leaveCountCutoff: LEAVE_COUNT_CUTOFF,
+        workPatterns,
+        patternSubject: {
+          company_id: u.company_id ?? null,
+          role: u.role ?? null,
+          working_place: schedules[u.epf_number]?.working_place ?? null,
+        },
         suspenseDeduction: deductionTotals.get(u.epf_number) ?? 0,
       }));
 

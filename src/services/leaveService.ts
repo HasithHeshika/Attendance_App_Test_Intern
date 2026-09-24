@@ -4,7 +4,7 @@ import {
 } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import type { LeaveRecord, LeaveType, LeaveBalance, LeaveStatus } from '@/lib/types';
-import { format, parseISO, eachDayOfInterval, isWeekend } from 'date-fns';
+import { format } from 'date-fns';
 
 const LEAVE_COL   = 'leaves';
 const LTYPE_COL   = 'leave_types';
@@ -99,12 +99,6 @@ export async function restoreLeaveBalance(
     [`balances.${leaveTypeId}`]: current + days,
     updated_at: Timestamp.now(),
   });
-}
-
-// ─── Business Days Count ──────────────────────────────────────────────────────
-function countBusinessDays(from: string, to: string): number {
-  const days = eachDayOfInterval({ start: parseISO(from), end: parseISO(to) });
-  return days.filter(d => !isWeekend(d)).length;
 }
 
 // ─── Leave Records ────────────────────────────────────────────────────────────

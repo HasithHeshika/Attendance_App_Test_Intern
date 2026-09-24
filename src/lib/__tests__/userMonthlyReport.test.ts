@@ -1,7 +1,8 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { computeUserMonthlyReport } from '../userMonthlyReport';
+import { computeUserMonthlyReport, LEAVE_COUNT_CUTOFF } from '../userMonthlyReport';
 import type { AppUser, AttendanceRecord, LeaveRecord } from '../types';
+import type { WorkPattern } from '../workPatterns';
 
 // August 2026: Saturdays fall on the 1st, 8th, 15th, 22nd and 29th; Sundays on the 2nd and
 // 9th. Every fixture below leans on that shape, so read a date as its weekday.
@@ -125,6 +126,106 @@ test('a leave Saturday the roster covers stays whole', () => {
 test('the month clamp still holds — only the part inside the month counts', () => {
   const r = run({ leaves: [leave('2026-07-28', '2026-08-03')], saturdayHalfDay: true });
   assert.equal(r.totalLeaves, 2.5);   // Sat 1 Aug 0.5 + Sun 2 Aug 1 + Mon 3 Aug 1
+});
+
+// ─── holidays inside a leave ───────────────────────────────────────────────────
+// Tuesday 4 August is the company holiday. The leave runs from Monday 3 to Wednesday 5.
+
+test('without a cut-off a holiday inside a leave is still charged', () => {
+  const r = run({
+    leaves: [leave('2026-08-03', '2026-08-05')],
+    holidays: new Set(['2026-08-04']),
+  });
+  assert.equal(r.totalLeaves, 3);
+});
+
+test('from the cut-off a holiday inside a leave is not charged', () => {
+  const r = run({
+    leaves: [leave('2026-08-03', '2026-08-05')],
+    holidays: new Set(['2026-08-04']),
+    leaveCountCutoff: '2026-08-01',
+  });
+  assert.equal(r.totalLeaves, 2);
+  assert.equal(r.approvedLeaves, 2);
+});
+
+test('a holiday before the cut-off is still charged, so past months do not change', () => {
+  const r = run({
+    leaves: [leave('2026-08-03', '2026-08-05')],
+    holidays: new Set(['2026-08-04']),
+    leaveCountCutoff: '2026-08-05',
+  });
+  assert.equal(r.totalLeaves, 3);
+});
+
+test('a holiday the roster covers is still charged', () => {
+  const r = run({
+    leaves: [leave('2026-08-03', '2026-08-05')],
+    holidays: new Set(['2026-08-04']),
+    shiftAssignments: [{ from_date: '2026-08-04', to_date: '2026-08-04' }],
+    leaveCountCutoff: '2026-08-01',
+  });
+  assert.equal(r.totalLeaves, 3);
+});
+
+test('the cut-off is written as a full yyyy-MM-dd date', () => {
+  // Dates are compared as text, so '2026-9-11' would sort after '2026-09-11' and the
+  // rule would silently start on the wrong day.
+  assert.match(LEAVE_COUNT_CUTOFF, /^\d{4}-\d{2}-\d{2}$/);
+});
+
+// ─── rest days inside a leave ──────────────────────────────────────────────────
+// The leave runs from Friday 7 to Monday 10 August, so Sunday 9 is inside it. Without the
+// saturdayHalfDay flag, the Saturday counts as a whole day, exactly as before.
+
+function pattern(over: Record<string, unknown> = {}): WorkPattern {
+  return {
+    id: 'P1',
+    name: 'Monday to Saturday',
+    company_id: '',
+    scope: 'company',
+    scope_id: '',
+    days: { 1: 8, 2: 8, 3: 8, 4: 8, 5: 8, 6: 4 },   // Sunday is not listed: a rest day
+    is_shift: false,
+    effective_from: '2026-01-01',
+    is_active: true,
+    ...over,
+  } as unknown as WorkPattern;
+}
+
+test('from the cut-off a rest day in the work pattern is not charged', () => {
+  const r = run({
+    leaves: [leave('2026-08-07', '2026-08-10')],
+    workPatterns: [pattern()],
+    leaveCountCutoff: '2026-08-01',
+  });
+  assert.equal(r.totalLeaves, 3);   // Friday, Saturday and Monday; Sunday is not charged
+});
+
+test('without a work pattern a Sunday is still charged', () => {
+  const r = run({
+    leaves: [leave('2026-08-07', '2026-08-10')],
+    leaveCountCutoff: '2026-08-01',
+  });
+  assert.equal(r.totalLeaves, 4);
+});
+
+test('a rest day before the cut-off is still charged', () => {
+  const r = run({
+    leaves: [leave('2026-08-07', '2026-08-10')],
+    workPatterns: [pattern()],
+    leaveCountCutoff: '2026-08-10',
+  });
+  assert.equal(r.totalLeaves, 4);
+});
+
+test('a shift pattern leaves the count unchanged', () => {
+  const r = run({
+    leaves: [leave('2026-08-07', '2026-08-10')],
+    workPatterns: [pattern({ is_shift: true })],
+    leaveCountCutoff: '2026-08-01',
+  });
+  assert.equal(r.totalLeaves, 4);
 });
 
 // ─── absent days ───────────────────────────────────────────────────────────────
