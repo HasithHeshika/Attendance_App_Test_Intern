@@ -1,5 +1,12 @@
 [
   {
+    "version": "1.9.72",
+    "date": "2026-09-24T04:10:09.909Z",
+    "changes": [
+      "Fix/leave day count"
+    ]
+  },
+  {
     "version": "1.9.71",
     "date": "2026-09-24T04:09:54.920Z",
     "changes": [
@@ -338,13 +345,6 @@
   {
     "version": "1.9.23",
     "date": "2026-09-04T09:47:31.169Z",
-    "changes": [
-      "Merge branch 'main' of https://github.com/devopsaltavision/Attendance-Web-App"
-    ]
-  },
-  {
-    "version": "1.9.22",
-    "date": "2026-09-04T09:35:36.027Z",
     "changes": [
       "Merge branch 'main' of https://github.com/devopsaltavision/Attendance-Web-App"
     ]
