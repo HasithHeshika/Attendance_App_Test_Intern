@@ -270,8 +270,8 @@ export default function UserActivityPanel({ epf, user, usersByEpf }: { epf: stri
         user, isTechnician, attendance, leaves: empLeaves, outstations, holidays, year, month,
         poyaDates, shiftAssignments, shiftPlaceNames,
         saturdayHalfDay: tenant.features.saturdayHalfDay,
-                leaveCountCutoff: LEAVE_COUNT_CUTOFF,
-                        workPatterns,
+        leaveCountCutoff: LEAVE_COUNT_CUTOFF,
+        workPatterns,
         patternSubject: {
           company_id: user.company_id ?? null,
           role: user.role ?? null,
